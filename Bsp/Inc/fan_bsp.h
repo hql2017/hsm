@@ -1,0 +1,21 @@
+/*
+ *fan_bsp.h
+ *
+ *  Created on: Aug 14, 2025
+ *      Author: Hql2017
+ */
+
+#ifndef __FAN_BSP_H__
+#define __FAN_BSP_H__
+
+extern void fan_init(void);
+extern void app_fan_feed_count(unsigned char fan_number);
+extern void fan_stop(unsigned char fanNum);
+extern void fan_start(unsigned char fanNum);
+extern void app_fan_manage( unsigned int handleTimeMs);
+extern void fan_spd_set(unsigned char fanNumber,unsigned int spd);
+extern void cacul_fan_freq(unsigned int timeMs);
+#define FAN38_COMPRESSOR_NUM  2//38风扇
+#define FAN25_NUM 1//25风扇
+#endif /* FAN_BSP_H_ */
+
