@@ -366,9 +366,9 @@ void MX_TIM23_Init(void)
 
   /* USER CODE END TIM23_Init 1 */
   htim23.Instance = TIM23;
-  htim23.Init.Prescaler = 5399;
+  htim23.Init.Prescaler = 2699;
   htim23.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim23.Init.Period = 49999;
+  htim23.Init.Period = 99999;
   htim23.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim23.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim23) != HAL_OK)
@@ -784,12 +784,11 @@ void HAL_TIM_PWM_MspDeInit(TIM_HandleTypeDef* tim_pwmHandle)
 /************************************************************************//**
 * @brief 激光指示灯PWM
   * @param 
-  * @note  推介频率2k GREEN 40<duty>60 :推介频率50k RED 8<duty>100 ,freq 10K~50K
+  * @note  推介频率2k GREEN 40<duty>60 :推介频率50k RED 35<duty>100 ,freq 10K~50K
   * @retval  
   *****************************************************************************/
  void app_auxiliary_bulb_pwm(unsigned char lightLevel,FunctionalState flag)
  { 
-
   if(flag==ENABLE&&lightLevel!=0)
   { 
 		unsigned int timeUs;
@@ -801,7 +800,7 @@ void HAL_TIM_PWM_MspDeInit(TIM_HandleTypeDef* tim_pwmHandle)
 		__HAL_TIM_SetAutoreload(&htim2,period-1);
 		//duty 1%  100%; 0% close ;duty=lightLevel
     if(lightLevel>99) timeUs=99;//max
-    if(lightLevel<8) timeUs=8;//min
+    if(lightLevel<40) timeUs=40;//min
     else  timeUs=lightLevel;	   
 		__HAL_TIM_SetCompare(&htim2,TIM_CHANNEL_2,timeUs-1);
 		HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_2);

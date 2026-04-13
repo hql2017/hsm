@@ -31,6 +31,7 @@ typedef struct {
 //0~200mJ =5*40
 P_2000W_STATUS p2000w_status;
 P_2000W_SET_PARAM p2000w_ctr_param;	
+static unsigned char p2000w_soft_version[5]={0x14,0xEA,0x07,0x04,0x06};
 static HAL_StatusTypeDef app_p2000w_transmit(unsigned char code,unsigned char  *data,unsigned short int dataLen);
 /***************************************************************************//**
  * @brief MODBUS/CRC-16
@@ -176,6 +177,21 @@ void app_p2000W_pack_handle( unsigned  char *data,unsigned short int len )
 				DEBUG_PRINTF("p2000w voltage freq pulsWidth set successs");
 			}
 		break;
+		case P2000W_CODE_RECONNECT:
+			if(data[4]!=0)
+			{	
+				for(unsigned char i=0;i<5;i++)
+				{
+					p2000w_soft_version[i]=data[4+i];
+				}	
+				DEBUG_PRINTF("p2000w Version=0x%02x%02x%02x%02x%02x\r\n",p2000w_soft_version[0],p2000w_soft_version[1],\
+					p2000w_soft_version[2],p2000w_soft_version[3],p2000w_soft_version[4]);
+			}
+			else 
+			{					
+				DEBUG_PRINTF("p2000w read ver fail");
+			}
+		break;
 		default:
 		break;
 	}	
@@ -270,8 +286,8 @@ unsigned short int app_p2000w_package_check(void)
 } 
  /************************************************************************//**
   * @brief 读状态
-  * @param  freq
-  * @note  1~100Hz
+  * @param  
+  * @note  
   * @retval 
   *****************************************************************************/
  void app_p2000w_read_status_req(void)
@@ -281,6 +297,20 @@ unsigned short int app_p2000w_package_check(void)
 	dataBuff[0]=0;//len	
 	dataBuff[1]=0;//len
 	err = app_p2000w_transmit(P2000W_CODE_STA_QUERY,dataBuff,2);	
+ }
+ /************************************************************************//**
+  * @brief 重连，软件复位
+  * @param  
+  * @note 软件复位
+  * @retval 
+  *****************************************************************************/
+ void app_p2000w_re_connect_req(void)
+ {
+	HAL_StatusTypeDef err;
+	unsigned char dataBuff[2];	
+	dataBuff[0]=0;	
+	dataBuff[1]=0;
+	err = app_p2000w_transmit(P2000W_CODE_RECONNECT,dataBuff,2);	
  }
   /************************************************************************//**
   * @brief 设置电源输出电压值
@@ -298,7 +328,8 @@ unsigned short int app_p2000w_package_check(void)
 	//txValue=(voltage/1216)*4.7*(4096/3.3)*8;=(unsigned short int)(voltage*38.3795);
 	if(voltage<LASER_1064_MIN_ENERGE_V) txValue=7675;
 	else if(voltage>LASER_1064_MAX_ENERGE_V) txValue=23000;
-	else txValue=(unsigned short int)((voltage/1216)*4.7*(4096/3.3)*8);	
+	//else txValue=voltage*38.3795853269537;//((voltage/1216)*4.7*(4096/3.3)*8);
+	else txValue=(unsigned short  )(((float)voltage*19251.2)/501.6);			
 	dataBuff[0]=txValue&0xFF;
 	dataBuff[1]=(txValue>>8)&0xFF;
 	err = app_p2000w_transmit(P2000W_CODE_VOLTAGE_SET,dataBuff,2);		
@@ -329,7 +360,7 @@ unsigned short int app_p2000w_package_check(void)
  {		
 	HAL_StatusTypeDef err;
 	unsigned char dataBuff[2];
-	if(pulseWidthUs<100) pulseWidthUs=100;//100us
+	if(pulseWidthUs<80) pulseWidthUs=80;//100us
 	if(pulseWidthUs>240) pulseWidthUs=240;//240us
 	dataBuff[0]=(pulseWidthUs)&0xFF;
 	dataBuff[1]=((pulseWidthUs)>>8)&0xFF;
@@ -439,6 +470,13 @@ void app_p2000w_v_q_set(unsigned short int voltage,unsigned short int freq,unsig
 		else
 		{
 			DEBUG_PRINTF("p2000w init fail!\r\n");
+		}
+	}
+	else if(code==P2000W_CODE_RECONNECT)
+	{	
+		if((p2000w_status.ctr_status&P2000W_STA_B1_PFC_OK)!=P2000W_STA_B1_PFC_OK)
+		{
+			app_p2000w_re_connect_req();
 		}
 	}
 	else 

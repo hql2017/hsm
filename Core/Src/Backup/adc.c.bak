@@ -476,8 +476,7 @@ void filter_ad1(void)
   advalue[2] = (uint16_t)(sum[2] / groups);
   advalue[3] = (uint16_t)(sum[3] / groups);
   advalue[4] = (uint16_t)(sum[4] / groups);
-} 
- 
+}  
  
 /**
   * @brief app_get_energe_adc_value

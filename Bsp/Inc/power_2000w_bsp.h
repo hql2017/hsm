@@ -11,16 +11,18 @@
 #define P2000W_CODE_STA_QUERY    0x01
 #define P2000W_CODE_VOLTAGE_SET  0x02
 #define P2000W_CODE_PULSE_FREQ   0x03
-#define P2000W_CODE_PULSE_WIDTH  0x04//脉宽
-#define P2000W_CODE_PRO_HOT_CTR     0x05//预燃
-#define P2000W_CODE_RELEY_CTR     0x06//继电器控制
-#define P2000W_CODE_PULSE_OUT     0x07//脉冲输出
+#define P2000W_CODE_PULSE_WIDTH  0x04   //脉宽
+#define P2000W_CODE_PRO_HOT_CTR  0x05 	//预燃
+#define P2000W_CODE_RELEY_CTR    0x06	//继电器控制
+#define P2000W_CODE_PULSE_OUT    0x07	//脉冲输出
+#define P2000W_CODE_RECONNECT    0x08   //重连(读取软件版本号)7E 7E 0A 08 00 00 A0 15 0D 0A
+ 
 
 #define P2000W_VOLTAGE_FREQ_SET_COMMON  0x90 //电压频率一起  
 #define P2000W_CMD_ACK_MASK    0x7F//(code)（命令响应| 功能码）
 
-#define P2000W_PRO_HOT_WAIT_TIMEOUT  10000 //预燃烧等待时间10s
-#define P2000W_RELEY_WAIT_TIMEOUT  3500//继电器时间3.5s
+#define P2000W_PRO_HOT_WAIT_TIMEOUT  12000 //预燃烧等待时间12s
+#define P2000W_RELEY_WAIT_TIMEOUT  4000//继电器时间3.5s
 #define P2000W_FRAME_TIMEOUT      300//200//阻塞时间ms
 #define P2000W_FRAME_DELAY_TIME  100 //最小数据帧间隔100
    

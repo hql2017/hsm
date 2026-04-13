@@ -45,6 +45,7 @@ void kalman_filter_init(KalmanFilter* kf, double initial_estimate, double varian
 double kalman_filter_update(KalmanFilter* kf, double measurement) ;
 void sord_data(unsigned  short int *dataBuff,unsigned  short int length,unsigned char flag );//排序
  unsigned short CRC16_TABLE_Check(unsigned char *str, unsigned short len);
+ unsigned  short int match_max(unsigned  short int *dataBuff,unsigned  short int length );
 
 HAL_StatusTypeDef compare_buff_no_change(unsigned char *buff1,unsigned char *buff2,unsigned int length);
 #endif /* COMMON_FUNCTION */

@@ -275,7 +275,7 @@ typedef struct{
 		float iBus;                           //24V总电源电流mA，adc
 		float vBus;                           //24V总电源电压mV，adc
 		float air_pump_pressure;              //气泵气压,adc
-    float cool_water_pressure;           //冷却水压，adc
+    float treatment_water_pressure;           //治疗水压，adc
 	  //float eth_cool_k0_temprature;       //环境冷端补偿温度
 		float eth_k1_temprature;              //热电偶K1温度
 		float eth_k2_temprature;              //热电偶K2温度

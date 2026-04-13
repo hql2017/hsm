@@ -513,7 +513,7 @@ void app_air_pump_switch( FunctionalState flag)
   else if(IoNum==In3_chocke_air_solenoid)
   {//低报警，高正常,
     //更换气泵，改变检测方式
-    if(HAL_GPIO_ReadPin(PWR2000W_Sorce_ESolenoid_STATUS_GPIO_Port,PWR2000W_Sorce_ESolenoid_STATUS_Pin)==GPIO_PIN_SET)
+    if(HAL_GPIO_ReadPin(High_water_pressure_OFF_Signal_GPIO_Port,High_water_pressure_OFF_Signal_Pin)==GPIO_PIN_SET)
     {
       err=SUCCESS;
     }      

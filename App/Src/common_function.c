@@ -14,6 +14,26 @@ uint16_t crc_table_list[256]=
 
 }
 / ****
+  * @brief 找出最大值
+  * @param dataBuff
+  * @note   
+  * @retval Max value
+  */
+ unsigned  short int match_max(unsigned  short int *dataBuff,unsigned  short int length )
+ {
+	unsigned  short int maxValue,i;	
+	if(length<1) return 0;	
+	maxValue=0;	
+	for(i=0;i<length;i++)
+	{		
+		if(maxValue<dataBuff[i])
+		{
+			maxValue = dataBuff[i];	
+		}			
+	}	
+	return maxValue;
+} 
+/****
   * @brief MAAX->MIN，冒泡排序
   * @param dataBuff
   * @note   

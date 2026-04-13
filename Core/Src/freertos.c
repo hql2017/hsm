@@ -627,8 +627,9 @@ void StartDefaultTask(void *argument)
     app_get_adc_value(AD1_OCP_Ibus_INDEX,&sEnvParam.iBus);
     app_get_adc_value(AD1_24V_VBUS_INDEX,&sEnvParam.vBus);    
     app_get_adc_value(AD1_AIR_PRESSER_INDEX,&sEnvParam.air_pump_pressure);
-    DEBUG_PRINTF("adc load:NTC=%.2f℃ laser_energe=%.1f iBus=%.1fmA ,vBus=%.1fmV,air_pump_pressure=%.2fkPa\r\n",sEnvParam.NTC_temprature,\
-      sEnvParam.laser_1064_energy,sEnvParam.iBus,sEnvParam.vBus,sEnvParam.air_pump_pressure); 
+    app_get_adc_value(AD1_WATER_PRESSER_INDEX,&sEnvParam.treatment_water_pressure);
+    DEBUG_PRINTF("adc load:NTC=%.2f℃ laser_energe=%.1f iBus=%.1fmA ,vBus=%.1fmV,air_pump_pressure=%.2fkPa,treat_water_pressure=%.2fkPa\r\n",sEnvParam.NTC_temprature,\
+      sEnvParam.laser_1064_energy,sEnvParam.iBus,sEnvParam.vBus,sEnvParam.air_pump_pressure,sEnvParam.treatment_water_pressure); 
      
     if(sEnvParam.NTC_temprature>-40&&sEnvParam.NTC_temprature<150)
     {      
@@ -726,7 +727,7 @@ void auxTask02(void *argument)
       app_fan_manage(1000);	
 			HAL_GPIO_TogglePin(MCU_SYS_health_LED_GPIO_Port,MCU_SYS_health_LED_Pin); 
       app_sram_status_monitor();  
-      //DEBUG_PRINTF("air pre=%.1f water_pressure=%.1f \r\n",sEnvParam.air_pump_pressure,sEnvParam.cool_water_pressure);//
+      //DEBUG_PRINTF("air pre=%.1f water_pressure=%.1f \r\n",sEnvParam.air_pump_pressure,sEnvParam.treatment_water_pressure);//
      // DEBUG_PRINTF("cool water_depth=%.1f  \r\n", sEnvParam.cool_water_depth);     
 		}	    
 		/**********************RGB****************************/		
@@ -735,6 +736,7 @@ void auxTask02(void *argument)
     {
       case 0:
         rgb_color_all(0);
+        
       break;
       case RGB_G_STANDBY:      
         {
@@ -886,6 +888,7 @@ void keyScanTask03(void *argument)
 */
 static unsigned short int test_V;
 /* USER CODE END Header_laserWorkTask04 */
+
 void laserWorkTask04(void *argument)
 {
   /* USER CODE BEGIN laserWorkTask04 */
@@ -911,19 +914,14 @@ void laserWorkTask04(void *argument)
     statusJT= osMessageQueueGet(keyJTMessageQueue01Handle,&recKeyMessage,0,10);  
     if(laser_ctr_param.timerEnableFlag==0||laser_ctr_param.timerCtr==0) 
     {
-      sGenSta.laser_run_B5_timer_status=0;
-      if(osTimerIsRunning(laserWorkTimer01Handle)==pdTRUE)
-      {
-        osTimerStop(laserWorkTimer01Handle);
-      }
+      sGenSta.laser_run_B5_timer_status=0;     
+      osTimerStop(laserWorkTimer01Handle);
     }
     if(event==(EVENTS_LASER_1064_PREPARE_OK_BIT|EVENTS_LASER_JT_ENABLE_BIT))
     {      
       if(laser_close_sem==osOK&&sGenSta.laser_run_B0_pro_hot_status)
-      {  
-        if(osTimerIsRunning(laserWorkTimer01Handle)==pdTRUE) {         
-          osTimerStop(laserWorkTimer01Handle);
-        } 
+      {     
+        osTimerStop(laserWorkTimer01Handle);
         sGenSta.laser_run_B5_timer_status=0;       
         tmc2226_stop();  
         app_deflate_air_solenoid(DISABLE);       
@@ -1006,8 +1004,7 @@ void laserWorkTask04(void *argument)
           if((p2000w_status.ctr_status&P2000W_STA_B3_PRO_HOT_OK)!=P2000W_STA_B3_PRO_HOT_OK)  
           {
             sGenSta.laser_run_B0_pro_hot_status=0;              
-            DEBUG_PRINTF("prohot close ok\r\n"); 
-            osEventFlagsClear(laserEvent02Handle,EVENTS_LASER_PREPARE_OK_ALL_BITS_MASK);
+            DEBUG_PRINTF("prohot close ok\r\n");        
           } 
           else
           {
@@ -1022,7 +1019,7 @@ void laserWorkTask04(void *argument)
           sGenSta.laser_run_B4_laser_980_out_status=sGenSta.laser_run_B1_laser_out_status;
         }    
         p2000w_ctr_param.proHotCtr=0;       
-        if(osTimerIsRunning(beepHearttTimer05Handle)!=0) osTimerStop(beepHearttTimer05Handle); 
+         osTimerStop(beepHearttTimer05Handle); 
         rgbMessage = RGB_G_STANDBY;
         osMessageQueuePut(rgbQueue02Handle,&rgbMessage,0,0);
         osEventFlagsClear(laserEvent02Handle,EVENTS_LASER_PREPARE_OK_ALL_BITS_MASK);
@@ -1071,7 +1068,7 @@ void laserWorkTask04(void *argument)
               app_p2000w_out_voltage_set(test_V);
               osSemaphoreAcquire(p2000wHeartBinarySem07Handle,P2000W_FRAME_TIMEOUT);
               unsigned short int time_offeset=(test_V/20)-4;
-              app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-time_offeset);
+              app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet);
               osMutexRelease(p2000wBusMutex01Handle);
             }
             osDelay(P2000W_FRAME_DELAY_TIME);
@@ -1152,22 +1149,36 @@ void laserWorkTask04(void *argument)
           if(sGenSta.laser_run_B1_laser_out_status!=0&&statusJT==osOK)
           {  
             app_get_adc_value(AD2_LASER_1064_INDEX,&e_feedback);  
-            //e_feedback*param=Pavg平均功率
-            //E=Pavg/freq;//脉冲能量
-            //Ppeak=E/u_sys_param.sys_config_param.laser_pulse_width_us;//峰值功率
-            float p_avg=(e_feedback*0.0001066)*u_sys_param.sys_config_param.laser_pulse_width_us*laser_ctr_param.laserFreq;
-            sEnvParam.laser_1064_energy=p_avg/laser_ctr_param.laserFreq;//能量
+            // /R(光电管响应度 ,1064nm光R≈0.795mA/mW);
+            //Ipeak*R=Ppeak//峰值功率
+            //e_feedback*param=Ppeak//峰值功率
+            //Pavg=Ppeak*u_sys_param.sys_config_param.laser_pulse_width_us*laserFreq；//占空比
+            //E=Pavg/freq;->Pavg=freq*E //脉冲能量
+            //Ppeak=E/u_sys_param.sys_config_param.laser_pulse_width_us;//峰值功率            
+            double p_avg=(e_feedback*0.000456)*u_sys_param.sys_config_param.laser_pulse_width_us*laser_ctr_param.laserFreq;
+            if(laser_ctr_param.laserFreq==1)
+            {             
+              sEnvParam.laser_1064_energy=p_avg*1.4/laser_ctr_param.laserFreq;//能量
+            }
+            else if(laser_ctr_param.laserFreq<=5)
+            {             
+              sEnvParam.laser_1064_energy=p_avg*1.55/laser_ctr_param.laserFreq;//能量
+            }
+            else 
+            {              
+              sEnvParam.laser_1064_energy=p_avg*1.80/laser_ctr_param.laserFreq;//能量
+            }
             float peak_P = (sEnvParam.laser_1064_energy)/u_sys_param.sys_config_param.laser_pulse_width_us;//peak  power ,峰值功率 
-            DEBUG_PRINTF("v-set=%dvE=%.1fmJ p_avg=%.2fw feedBck=%.1fmV pulseCount=%d rdb=%d 980=%d\r\n",test_V,sEnvParam.laser_1064_energy,p_avg,e_feedback,u_sys_param.sys_config_param.laser_pulse_count,u_sys_param.sys_config_param.RDB_use_timeS,u_sys_param.sys_config_param.laser_use_timeS);              
-            if(sEnvParam.laser_1064_energy>0&&laser_ctr_param.laserEnerge>0)
+            DEBUG_PRINTF("v-set=%dvE=%.1fmJ p_avg=%.2fmw feedBck=%.1fmV pulseCount=%d rdb=%d 980=%d\r\n",test_V,sEnvParam.laser_1064_energy,p_avg,e_feedback,u_sys_param.sys_config_param.laser_pulse_count,u_sys_param.sys_config_param.RDB_use_timeS,u_sys_param.sys_config_param.laser_use_timeS);              
+            if(sEnvParam.laser_1064_energy>0&&laser_ctr_param.laserEnerge>0&&e_feedback>0)
             {     
-              if(sEnvParam.laser_1064_energy>laser_ctr_param.laserEnerge*1.30)   
+              if(sEnvParam.laser_1064_energy>laser_ctr_param.laserEnerge*1.40)   
               {  
                 sGenSta.laser_param_B01_energe_status=2; //over load
-              }    
+              }  
               else sGenSta.laser_param_B01_energe_status=1;
             }            
-            else sGenSta.laser_param_B01_energe_status=0;//err                    
+            else sGenSta.laser_param_B01_energe_status=0;                   
           }
           #else 
           if(sGenSta.laser_run_B1_laser_out_status!=0) 
@@ -1181,7 +1192,8 @@ void laserWorkTask04(void *argument)
         sGenSta.laser_param_B456_jt_status = recKeyMessage;
       }
       else //if(recKeyMessage!=key_jt_long_press)
-      {      
+      {   
+        sGenSta.laser_param_B01_energe_status=1;//   
         osTimerStop(beepHearttTimer05Handle);         
         osTimerStop(laserWorkTimer01Handle); 
         if(sGenSta.laser_run_B5_timer_status!=0&&recKeyMessage!=key_jt_long_press)     sGenSta.laser_run_B5_timer_status=0;        
@@ -1217,18 +1229,14 @@ void laserWorkTask04(void *argument)
           {
             sGenSta.laser_run_B1_laser_out_status=0;
             if(laser_ctr_param.laserType!=0)     
-            {//980 disconnnect switch to 1064
-              
+            {//980 disconnnect switch to 1064              
               sGenSta.laser_run_B4_laser_980_out_status=sGenSta.laser_run_B1_laser_out_status;
             }     
             rgbMessage = RGB_LASER_PREPARE_OK;
             osMessageQueuePut(rgbQueue02Handle,&rgbMessage,0,0);
             DEBUG_PRINTF("stop 1064 \r\n");  
           } 
-          
-          app_deflate_air_solenoid(DISABLE);         
-
-          
+          app_deflate_air_solenoid(DISABLE);            
           sGenSta.laser_param_B456_jt_status = recKeyMessage;
         }                      
       }  
@@ -1437,7 +1445,7 @@ void laserWorkTask04(void *argument)
       {
         sGenSta.laser_param_B01_energe_status = 1;
         osTimerStop(beepHearttTimer05Handle);         
-        if(osTimerIsRunning(laserWorkTimer01Handle)==pdTRUE)  osTimerStop(laserWorkTimer01Handle); 
+        osTimerStop(laserWorkTimer01Handle); 
         if(sGenSta.laser_run_B5_timer_status!=0&&recKeyMessage!=key_jt_long_press)     sGenSta.laser_run_B5_timer_status=0;          
         if(sGenSta.laser_run_B4_laser_980_out_status!=0)
         {    
@@ -1495,6 +1503,7 @@ void laserWorkTask04(void *argument)
 * @retval None
 */
 /* USER CODE END Header_fastAuxTask05 */
+
 void fastAuxTask05(void *argument)
 {
   /* USER CODE BEGIN fastAuxTask05 */
@@ -1516,7 +1525,7 @@ void fastAuxTask05(void *argument)
     app_sys_genaration_status_manage();
 		app_fresh_laser_status_param(); 
     /***********循环水液位检查*******************/ 
-    app_get_adc_value(AD1_WATER_PRESSER_INDEX,&sEnvParam.cool_water_pressure);	     
+    app_get_adc_value(AD1_WATER_PRESSER_INDEX,&sEnvParam.treatment_water_pressure);	     
     app_mcp61_get_singgle_c_value_req();    
     osDelay(5);
     app_mcp61_package_check();
@@ -1911,7 +1920,7 @@ void laserProhotTask09(void *argument)
         if((u_s_l980.sta.staByte&L980_STA_HEART_BIT0)==L980_STA_HEART_BIT0) 
         {          
           u_l980.set_param.positionSet=33000;
-          m_stat=osMutexAcquire(canBusMutex02Handle,HMI_CAN_FRAME_DELAY_TIME);
+          m_stat=osMutexAcquire(canBusMutex02Handle,2*HMI_CAN_FRAME_DELAY_TIME);
           if(m_stat==osOK)
           {  
             osSemaphoreAcquire(hmiCanBusIdleSem06Handle,HMI_CAN_FRAME_DELAY_TIME);                  
@@ -1932,9 +1941,9 @@ void laserProhotTask09(void *argument)
             cmdBuff[1]=(laser_ctr_param.laserEnerge>>8)&0xFF;
             cmdBuff[2]=(dacValue)&0xFF;
             cmdBuff[3]=(dacValue>>8)&0xFF;
-            L980_appWriteReg(L980_REG_CTR_PRO_HOT,4,cmdBuff); 
-            DEBUG_PRINTF("set 980 energe=%d dac=%d \r\n",laser_ctr_param.laserEnerge,dacValue);            
-            osMutexRelease(canBusMutex02Handle);                  
+            L980_appWriteReg(L980_REG_CTR_PRO_HOT,4,cmdBuff);                        
+            osMutexRelease(canBusMutex02Handle); 
+            DEBUG_PRINTF("set 980 energe=%d dac=%d \r\n",laser_ctr_param.laserEnerge,dacValue);                  
           }          
           timeout = 0;
           do
@@ -1980,7 +1989,16 @@ void laserProhotTask09(void *argument)
           app_high_voltage_solenoid(DISABLE);
           DEBUG_PRINTF("restart p2000w ! \r\n"); 
           osDelay(P2000W_FRAME_TIMEOUT); 
-          app_high_voltage_solenoid(ENABLE);    
+          app_high_voltage_solenoid(ENABLE);
+          osDelay(P2000W_FRAME_TIMEOUT);
+          m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
+          if(m_stat==osOK)
+          { //re connect
+            osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME); 
+            cmdBuff[0] = 0;
+            app_p2000w_ctr_tansmit(P2000W_CODE_RECONNECT,cmdBuff);
+            osMutexRelease(p2000wBusMutex01Handle);           
+          }    
         }       
         timeout = 0;
         do
@@ -2002,13 +2020,23 @@ void laserProhotTask09(void *argument)
           if(m_stat==osOK)
           {   
             #if 1  
-            osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);            
-            app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-8);//8us 滤波迟滞
+            osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME); 
+            unsigned short int pulse_width_offeset=0;
+            if(p2000w_ctr_param.outVoltageSet>400)
+            {
+              pulse_width_offeset = (p2000w_ctr_param.outVoltageSet-400) *0.05;
+              //app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet+pulse_width_offeset);//
+            } 
+            else {
+              pulse_width_offeset = (400-p2000w_ctr_param.outVoltageSet) *0.05;
+              //app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-pulse_width_offeset);//
+            }                     
+            app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet);//-8);//8us 滤波迟滞
             osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
             app_p2000w_pulse_freq_set(p2000w_ctr_param.freqSet); 
             osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
             cmdBuff[0] = 0;
-            app_p2000w_ctr_tansmit(P2000W_CODE_STA_QUERY,cmdBuff);
+            app_p2000w_ctr_tansmit(P2000W_CODE_STA_QUERY,cmdBuff);            
             osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
             app_p2000w_out_voltage_set(p2000w_ctr_param.outVoltageSet); 
             DEBUG_PRINTF("lasr_vol=%dv freq=%dHz pulseW=%dus",p2000w_ctr_param.outVoltageSet,p2000w_ctr_param.freqSet,p2000w_ctr_param.pulseWidthSet);
@@ -2052,15 +2080,15 @@ void laserProhotTask09(void *argument)
           {
             if((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)!=P2000W_STA_B4_RELAY_OK)
             {              
-              m_stat=osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);           
+              m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);           
               if(m_stat==osOK)
               {
-                DEBUG_PRINTF("p2000w reley on  \r\n");
                 osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
                 cmdBuff[0]=1;
                 cmdBuff[1]=0;              
                 app_p2000w_ctr_tansmit(P2000W_CODE_RELEY_CTR,cmdBuff);             
-                osMutexRelease(p2000wBusMutex01Handle);               
+                osMutexRelease(p2000wBusMutex01Handle);  
+                DEBUG_PRINTF("p2000w reley on \r\n");             
               }  
             }       
             timeout=0;
@@ -2069,7 +2097,7 @@ void laserProhotTask09(void *argument)
               osDelay(P2000W_FRAME_DELAY_TIME);  
               timeout += P2000W_FRAME_DELAY_TIME; 
               if(timeout>P2000W_RELEY_WAIT_TIMEOUT)    
-              {
+              {                
                 DEBUG_PRINTF("p2000w reley open timeout\r\n");                   
                 break;
               }   
@@ -2085,7 +2113,17 @@ void laserProhotTask09(void *argument)
             }
             else
             {
-              DEBUG_PRINTF("laser 1064 reley open fail ,exit prohot!\r\n");  
+              DEBUG_PRINTF("laser 1064 reley open fail");  
+              m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
+              if(m_stat==osOK)
+              { 
+                osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
+                cmdBuff[0]=0;
+                cmdBuff[1]=0;              
+                app_p2000w_ctr_tansmit(P2000W_CODE_PRO_HOT_CTR,cmdBuff); 
+                osMutexRelease(p2000wBusMutex01Handle);
+                DEBUG_PRINTF(" exit prohot!\r\n"); 
+              }    
               laser_ctr_param.proHotCtr=0;
               local_proHotCtr=0;
             }
@@ -2106,15 +2144,16 @@ void laserProhotTask09(void *argument)
           }
           else
           {
+            app_high_voltage_solenoid(DISABLE);
             if((p2000w_status.ctr_status&P2000W_STA_B1_PFC_OK)!=P2000W_STA_B1_PFC_OK)
             {
-              DEBUG_PRINTF("1064 prohot fail : PFC ERR !\r\n");
+              DEBUG_PRINTF("1064 prohot fail : PFC ERR ! power off\r\n");
             }            
             if((p2000w_status.error_code&P2000W_ERROR_LLC_OVERLOAD)==P2000W_ERROR_LLC_OVERLOAD)
             {
-              DEBUG_PRINTF("1064 prohot fail : temprature high please wait 10 secends !\r\n");
+              DEBUG_PRINTF("1064 prohot fail : temprature high please wait 10 secends !power off\r\n");
             }
-            else  DEBUG_PRINTF("1064 prohot fail: p2000w,error code=0x%02x!\r\n",p2000w_status.error_code);  
+            else  DEBUG_PRINTF("1064 prohot fail: p2000w,error code=0x%02x! power off\r\n",p2000w_status.error_code);  
           }           
           p2000w_ctr_param.proHotCtr = 0;
           sGenSta.laser_run_B0_pro_hot_status = 0;   
@@ -2238,33 +2277,28 @@ void p2000wReceiveTask12(void *argument)
 	osTimerStart(p2000wHeartTimer04Handle,P2000W_FRAME_DELAY_TIME);
   for(;;)
   {    
-      osStatus_t status  = osSemaphoreAcquire(p2000wHeartBinarySem07Handle,10);
-      if(status==osOK)
-      {  
-          osStatus_t m_stat=osMutexAcquire(p2000wBusMutex01Handle,10);
-          if(m_stat==osOK) 
-          { 
-            app_p2000w_ctr_tansmit(P2000W_CODE_STA_QUERY,transBuff);
-            osMutexRelease(p2000wBusMutex01Handle);
-            osDelay(1);
-          } 
+    osStatus_t status  = osSemaphoreAcquire(p2000wHeartBinarySem07Handle,10);
+    if(status==osOK)
+    {  
+      osStatus_t m_stat=osMutexAcquire(p2000wBusMutex01Handle,10);
+      if(m_stat==osOK) 
+      { 
+        app_p2000w_ctr_tansmit(P2000W_CODE_STA_QUERY,transBuff);
+        osMutexRelease(p2000wBusMutex01Handle);
+        osDelay(1);
+      } 
     } 
     if(p2000w_status.init_status==4)
     {
       DEBUG_PRINTF("p2000w init fail ,restart\r\n");       
-      app_p2000w_init();   
-     
-      osStatus_t sta = osSemaphoreAcquire(p2000wHeartBinarySem07Handle,10);
-      if(sta==osOK)        
-      { 
-        osStatus_t m_stat_t = osMutexAcquire(p2000wBusMutex01Handle,10);
-        if(m_stat_t==osOK)    
-        {         
-          app_p2000w_ctr_tansmit(P2000W_CODE_STA_QUERY,transBuff);
-          osMutexRelease(p2000wBusMutex01Handle);
-          osDelay(1);
-        } 
-      }       
+      app_p2000w_init();        
+      osStatus_t m_stat2 = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
+      if(m_stat2==osOK)
+      { //re connect
+        osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);   
+        app_p2000w_ctr_tansmit(P2000W_CODE_RECONNECT,transBuff);
+        osMutexRelease(p2000wBusMutex01Handle);           
+      }    
     }
     else
     {   
@@ -2393,11 +2427,11 @@ void beepHeartCallback05(void *argument)
   }  
   if(GPIO_Pin==LASER_PULSE_COUNT_in_Pin)
   {   
-    //if(laser_ctr_param.lowEnergeMode==0)
+    if(laser_ctr_param.lowEnergeMode==0)
     { 
       //unsigned short int timus_offeset=(app_laser_1064_energe_to_voltage(laser_ctr_param.laserEnerge)-80)/20; 
       //unsigned char Len=4*(u_sys_param.sys_config_param.laser_pulse_width_us-timus_offeset)/5;    
-      unsigned char Len=4*(u_sys_param.sys_config_param.laser_pulse_width_us)/5;
+      unsigned char Len=u_sys_param.sys_config_param.laser_pulse_width_us+40;//4*(u_sys_param.sys_config_param.laser_pulse_width_us)/5;
       pulse_adc_start(Len); 
       u_sys_param.sys_config_param.laser_pulse_count++;      
     }
@@ -2484,7 +2518,11 @@ void app_sys_genaration_status_manage(void)
   //治疗水OK就绪信号 
 	if(app_get_io_status(In7_water_ready_ok)==SUCCESS&&sEnvParam.treatment_water_depth!=0)
 	{  
-    osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO7_BIT|EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT);
+    if(HAL_GPIO_ReadPin(High_water_pressure_OFF_Signal_GPIO_Port,High_water_pressure_OFF_Signal_Pin)==GPIO_PIN_RESET)//治疗水压报警,低报警
+    {
+      osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO7_BIT|EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT);
+    }
+    else osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO7_BIT|EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT);
 	}
 	else 
   {  
@@ -2494,7 +2532,10 @@ void app_sys_genaration_status_manage(void)
 	if(app_get_io_status(In8_water_circle_ok)==SUCCESS&&sEnvParam.cool_water_depth>u_sys_param.sys_config_param.cool_water_depth_low)
 	{  
     u_sys_param.sys_config_param.tec_switch=1;
-    if(sEnvParam.cool_water_depth<u_sys_param.sys_config_param.cool_water_depth_high) osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO8_BIT);
+    if(sEnvParam.cool_water_depth<u_sys_param.sys_config_param.cool_water_depth_high)
+    {     
+      osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO8_BIT);
+    } 
 	  else osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO8_BIT);//水过量
   }
 	else 
@@ -2808,7 +2849,7 @@ void app_set_default_sys_config_param(void)
   // p_peak=p_avg/(u_sys_param.sys_config_param.laser_pulse_width_us*laser_ctr_param.laserFreq)==(ret_rol)*param; 
   // sEnvParam.laser_1064_energy/(u_sys_param.sys_config_param.laser_pulse_width_us)==(ret_rol)*param; 
     //(ret_rol)= sEnvParam.laser_1064_energy/(u_sys_param.sys_config_param.laser_pulse_width_us*param2); 
-   ret_vol=energe*280/u_sys_param.sys_config_param.laser_pulse_width_us+200;
+   ret_vol=energe*240/u_sys_param.sys_config_param.laser_pulse_width_us+200;
    #else
       if(energe<50) ret_vol=energe*0.4+300;   
       else ret_vol=(energe-20)*1.10+300; 
@@ -2885,10 +2926,8 @@ void app_laser_preapare_semo(void)
   {
     if(local_tmc_flag!=0)
     { 
-      if(osTimerIsRunning(tmcMaxRunTimer03Handle)==pdTRUE)
-      {
-        osTimerStop(tmcMaxRunTimer03Handle);
-      }
+     
+      osTimerStop(tmcMaxRunTimer03Handle);     
       tmc2226_start(!TMC_WATER_OUT_DIR_VALUE,3,CONTINUOUS_STEPS_COUNT); 
       osDelay(120);
       tmc2226_stop(); 
@@ -3182,7 +3221,8 @@ unsigned short int app_energe_cali( unsigned int adVoltage)
     {
       DEBUG_PRINTF("p2000w temprature High,stop laser 1064 out\r\n");       
       if(sGenSta.laser_run_B0_pro_hot_status != 0) osSemaphoreRelease(laserCloseSem05Handle);
-    }    
+    }  
+    
  }
  /************************************************************************//**
   * @brief 任务状态异常
