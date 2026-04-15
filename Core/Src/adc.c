@@ -494,14 +494,14 @@ void filter_ad1(void)
     uint32_t sum = 0U;
     unsigned short int i = 0,j=0;
     static unsigned char levelIdx = 0; 
-    //90%计算峰值;//50%计算脉宽;
+    //90%计算峰值;//50%计算脉宽和功率;
     unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)>>1;//50%; 
-  
+    // Vmax;
     for(i = 0; i < pulse_ad_count; i++)
     {
       if(ad2Buff[i]>max_half_value)
       {        
-        if(ad2Buff[i]>max_half_value*0.90)
+        //if(ad2Buff[i]>max_half_value*0.90)
         {
           j++;
           sum += ad2Buff[i];

@@ -1034,6 +1034,27 @@ void laserWorkTask04(void *argument)
       {           
         if(sGenSta.laser_run_B1_laser_out_status==0)
         { 
+          #if 0          
+            //test                       
+            test_V=laser_ctr_param.ledLightLevel*4+200;//200~600V; 
+            m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
+            if(m_stat==osOK)
+            {          
+              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
+              app_p2000w_out_voltage_set(test_V);   
+              unsigned short int pulse_width_offeset=0;
+              if(p2000w_ctr_param.outVoltageSet>300)
+              {
+                pulse_width_offeset =((p2000w_ctr_param.outVoltageSet)*2/75)-8;//- (p2000w_ctr_param.outVoltageSet-350) *0.08;
+             //   app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-20);//pulse_width_offeset>>1);//
+              }
+              else  pulse_width_offeset=20;         
+              app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-pulse_width_offeset);//8us 滤波迟滞         
+              osMutexRelease(p2000wBusMutex01Handle);
+              DEBUG_PRINTF("p2000w vol=%dv\r\n",test_V);
+            }
+            osDelay(P2000W_FRAME_DELAY_TIME);
+          #endif
           if((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)!=P2000W_STA_B4_RELAY_OK)
           {
             m_stat=osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
@@ -1045,9 +1066,9 @@ void laserWorkTask04(void *argument)
               app_p2000w_ctr_tansmit(P2000W_CODE_RELEY_CTR,p2000w_cmdBuff);                
               osMutexRelease(p2000wBusMutex01Handle);               
             }            
-          }        
-          timeout=0; 
-          while((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)!=P2000W_STA_B4_RELAY_OK)
+          }            
+          timeout=0;  
+          do
           {
             osDelay(P2000W_FRAME_DELAY_TIME);
             timeout+=P2000W_FRAME_DELAY_TIME;
@@ -1055,44 +1076,29 @@ void laserWorkTask04(void *argument)
             {
               break;
             }          
-          }
+          }while((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)!=P2000W_STA_B4_RELAY_OK); 
           if((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)==P2000W_STA_B4_RELAY_OK)
           {
-            #if 0           
-            //test                       
-            test_V=laser_ctr_param.ledLightLevel*3+250;//300; 
-            m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-            if(m_stat==osOK)
-            {          
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,P2000W_FRAME_TIMEOUT);
-              app_p2000w_out_voltage_set(test_V);
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,P2000W_FRAME_TIMEOUT);
-              unsigned short int time_offeset=(test_V/20)-4;
-              app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet);
-              osMutexRelease(p2000wBusMutex01Handle);
-            }
-            osDelay(P2000W_FRAME_DELAY_TIME);
-            #endif
             m_stat=osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
             if(m_stat==osOK)
-            {   
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);           
+            { 
+              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);            
               p2000w_cmdBuff[0]=1;
               p2000w_cmdBuff[1]=0;
               app_p2000w_ctr_tansmit(P2000W_CODE_PULSE_OUT,p2000w_cmdBuff);                
               osMutexRelease(p2000wBusMutex01Handle);               
-            } 
-            timeout=0;  
-            do
+            }            
+          }           
+          timeout=0;  
+          do
+          {
+            osDelay(P2000W_FRAME_DELAY_TIME);
+            timeout+=P2000W_FRAME_DELAY_TIME;
+            if(timeout>P2000W_FRAME_TIMEOUT)
             {
-              osDelay(P2000W_FRAME_DELAY_TIME);
-              timeout+=P2000W_FRAME_DELAY_TIME;
-              if(timeout>P2000W_FRAME_TIMEOUT)
-              {
-                break;
-              }          
-            }while((p2000w_status.ctr_status&P2000W_STA_B0_PULSE_OUT_OK)!=P2000W_STA_B0_PULSE_OUT_OK); 
-          }
+              break;
+            }          
+          }while((p2000w_status.ctr_status&P2000W_STA_B0_PULSE_OUT_OK)!=P2000W_STA_B0_PULSE_OUT_OK); 
           if((p2000w_status.ctr_status&P2000W_STA_B0_PULSE_OUT_OK)==P2000W_STA_B0_PULSE_OUT_OK)
           {
             if(laser_ctr_param.beep!=0)
@@ -1149,24 +1155,25 @@ void laserWorkTask04(void *argument)
           if(sGenSta.laser_run_B1_laser_out_status!=0&&statusJT==osOK)
           {  
             app_get_adc_value(AD2_LASER_1064_INDEX,&e_feedback);  
+          //  unsigned short int vol_e = app_laser_1064_energe_to_voltage(laser_ctr_param.laserEnerge); 
+         // double p_avg=(vol_e*0.00172)*u_sys_param.sys_config_param.laser_pulse_width_us*laser_ctr_param.laserFreq;
+            //Ppeak=vol_e*param;
             // /R(光电管响应度 ,1064nm光R≈0.795mA/mW);
-            //Ipeak*R=Ppeak//峰值功率
+            //Vr(光电管)*增益=Vpeak//光电管电压
+             //Ipeak=(Ppeak*R)//光电管电流
             //e_feedback*param=Ppeak//峰值功率
             //Pavg=Ppeak*u_sys_param.sys_config_param.laser_pulse_width_us*laserFreq；//占空比
             //E=Pavg/freq;->Pavg=freq*E //脉冲能量
-            //Ppeak=E/u_sys_param.sys_config_param.laser_pulse_width_us;//峰值功率            
-            double p_avg=(e_feedback*0.000456)*u_sys_param.sys_config_param.laser_pulse_width_us*laser_ctr_param.laserFreq;
-            if(laser_ctr_param.laserFreq==1)
+            //Ppeak=E/u_sys_param.sys_config_param.laser_pulse_width_us;//峰值功率 
+            double p_avg=(e_feedback*0.00052)*u_sys_param.sys_config_param.laser_pulse_width_us*laser_ctr_param.laserFreq;
+            // sEnvParam.laser_1064_energy=p_avg/laser_ctr_param.laserFreq;//能量
+            if(laser_ctr_param.laserFreq<=5)
             {             
-              sEnvParam.laser_1064_energy=p_avg*1.4/laser_ctr_param.laserFreq;//能量
-            }
-            else if(laser_ctr_param.laserFreq<=5)
-            {             
-              sEnvParam.laser_1064_energy=p_avg*1.55/laser_ctr_param.laserFreq;//能量
+              sEnvParam.laser_1064_energy=p_avg/laser_ctr_param.laserFreq;//能量
             }
             else 
             {              
-              sEnvParam.laser_1064_energy=p_avg*1.80/laser_ctr_param.laserFreq;//能量
+              sEnvParam.laser_1064_energy=p_avg*1.575/laser_ctr_param.laserFreq;//能量
             }
             float peak_P = (sEnvParam.laser_1064_energy)/u_sys_param.sys_config_param.laser_pulse_width_us;//peak  power ,峰值功率 
             DEBUG_PRINTF("v-set=%dvE=%.1fmJ p_avg=%.2fmw feedBck=%.1fmV pulseCount=%d rdb=%d 980=%d\r\n",test_V,sEnvParam.laser_1064_energy,p_avg,e_feedback,u_sys_param.sys_config_param.laser_pulse_count,u_sys_param.sys_config_param.RDB_use_timeS,u_sys_param.sys_config_param.laser_use_timeS);              
@@ -1174,7 +1181,7 @@ void laserWorkTask04(void *argument)
             {     
               if(sEnvParam.laser_1064_energy>laser_ctr_param.laserEnerge*1.40)   
               {  
-                sGenSta.laser_param_B01_energe_status=2; //over load
+                sGenSta.laser_param_B01_energe_status=1;//2; //over load
               }  
               else sGenSta.laser_param_B01_energe_status=1;
             }            
@@ -1238,14 +1245,13 @@ void laserWorkTask04(void *argument)
           } 
           app_deflate_air_solenoid(DISABLE);            
           sGenSta.laser_param_B456_jt_status = recKeyMessage;
-        }                      
+        }    
       }  
     }     
     else if(event==(EVENTS_LASER_980_PREPARE_OK_BIT|EVENTS_LASER_JT_ENABLE_BIT))
     {
       if(laser_close_sem==osOK&&sGenSta.laser_run_B0_pro_hot_status!=0)
       { 
-        
         sGenSta.laser_run_B5_timer_status=0;
         osTimerStop(laserWorkTimer01Handle);         	        
         tmc2226_stop();  
@@ -2022,16 +2028,16 @@ void laserProhotTask09(void *argument)
             #if 1  
             osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME); 
             unsigned short int pulse_width_offeset=0;
-            if(p2000w_ctr_param.outVoltageSet>400)
+            if(p2000w_ctr_param.outVoltageSet>300)
             {
-              pulse_width_offeset = (p2000w_ctr_param.outVoltageSet-400) *0.05;
-              //app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet+pulse_width_offeset);//
-            } 
-            else {
-              pulse_width_offeset = (400-p2000w_ctr_param.outVoltageSet) *0.05;
-              //app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-pulse_width_offeset);//
-            }                     
-            app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet);//-8);//8us 滤波迟滞
+              pulse_width_offeset =(28-(unsigned short int)(0.08*p2000w_ctr_param.outVoltageSet))>>2;          
+            }
+            else
+            {
+              //pulse_width_offeset=(28+(unsigned short int)(0.12*(300-p2000w_ctr_param.outVoltageSet)))>>1;   
+              pulse_width_offeset=(38-(unsigned short int)(0.06*p2000w_ctr_param.outVoltageSet));  
+            }      
+            app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-pulse_width_offeset);//8us 滤波迟滞
             osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
             app_p2000w_pulse_freq_set(p2000w_ctr_param.freqSet); 
             osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
@@ -2175,6 +2181,7 @@ void laserProhotTask09(void *argument)
   /* USER CODE END laserProhotTask09 */
 }
 
+
 /* USER CODE BEGIN Header_ge2117ManageTask10 */
 /**
 * @brief Function implementing the myTask10 thread.
@@ -2276,7 +2283,7 @@ void p2000wReceiveTask12(void *argument)
   app_p2000w_init();
 	osTimerStart(p2000wHeartTimer04Handle,P2000W_FRAME_DELAY_TIME);
   for(;;)
-  {    
+  {  
     osStatus_t status  = osSemaphoreAcquire(p2000wHeartBinarySem07Handle,10);
     if(status==osOK)
     {  
@@ -2849,7 +2856,7 @@ void app_set_default_sys_config_param(void)
   // p_peak=p_avg/(u_sys_param.sys_config_param.laser_pulse_width_us*laser_ctr_param.laserFreq)==(ret_rol)*param; 
   // sEnvParam.laser_1064_energy/(u_sys_param.sys_config_param.laser_pulse_width_us)==(ret_rol)*param; 
     //(ret_rol)= sEnvParam.laser_1064_energy/(u_sys_param.sys_config_param.laser_pulse_width_us*param2); 
-   ret_vol=energe*240/u_sys_param.sys_config_param.laser_pulse_width_us+200;
+   ret_vol=energe*295/u_sys_param.sys_config_param.laser_pulse_width_us+200;
    #else
       if(energe<50) ret_vol=energe*0.4+300;   
       else ret_vol=(energe-20)*1.10+300; 
