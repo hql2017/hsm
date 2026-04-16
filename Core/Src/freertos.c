@@ -56,6 +56,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 typedef StaticTask_t osStaticThreadDef_t;
+typedef StaticQueue_t osStaticMessageQDef_t;
 typedef StaticTimer_t osStaticTimerDef_t;
 typedef StaticEventGroup_t osStaticEventGroupDef_t;
 /* USER CODE BEGIN PTD */
@@ -211,6 +212,17 @@ osMessageQueueId_t keyJTMessageQueue01Handle;
 const osMessageQueueAttr_t keyJTMessageQueue01_attributes = {
   .name = "keyJTMessageQueue01"
 };
+/* Definitions for p2000wTxMessageQueue04 */
+osMessageQueueId_t p2000wTxMessageQueue04Handle;
+uint8_t p2000wTxMessageQueue04Buffer[ 4 * sizeof( uint32_t ) ];
+osStaticMessageQDef_t p2000wTxMessageQueue04ControlBlock;
+const osMessageQueueAttr_t p2000wTxMessageQueue04_attributes = {
+  .name = "p2000wTxMessageQueue04",
+  .cb_mem = &p2000wTxMessageQueue04ControlBlock,
+  .cb_size = sizeof(p2000wTxMessageQueue04ControlBlock),
+  .mq_mem = &p2000wTxMessageQueue04Buffer,
+  .mq_size = sizeof(p2000wTxMessageQueue04Buffer)
+};
 /* Definitions for laserWorkTimer01 */
 osTimerId_t laserWorkTimer01Handle;
 osStaticTimerDef_t laserWorkTimer01ControlBlock;
@@ -241,11 +253,6 @@ const osTimerAttr_t p2000wHeartTimer04_attributes = {
 osTimerId_t beepHearttTimer05Handle;
 const osTimerAttr_t beepHearttTimer05_attributes = {
   .name = "beepHearttTimer05"
-};
-/* Definitions for p2000wBusMutex01 */
-osMutexId_t p2000wBusMutex01Handle;
-const osMutexAttr_t p2000wBusMutex01_attributes = {
-  .name = "p2000wBusMutex01"
 };
 /* Definitions for canBusMutex02 */
 osMutexId_t canBusMutex02Handle;
@@ -382,9 +389,6 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE END Init */
   /* Create the mutex(es) */
-  /* creation of p2000wBusMutex01 */
-  p2000wBusMutex01Handle = osMutexNew(&p2000wBusMutex01_attributes);
-
   /* creation of canBusMutex02 */
   canBusMutex02Handle = osMutexNew(&canBusMutex02_attributes);
 
@@ -447,6 +451,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of keyJTMessageQueue01 */
   keyJTMessageQueue01Handle = osMessageQueueNew (3, sizeof(uint16_t), &keyJTMessageQueue01_attributes);
+
+  /* creation of p2000wTxMessageQueue04 */
+  p2000wTxMessageQueue04Handle = osMessageQueueNew (4, sizeof(uint32_t), &p2000wTxMessageQueue04_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -888,7 +895,6 @@ void keyScanTask03(void *argument)
 */
 static unsigned short int test_V;
 /* USER CODE END Header_laserWorkTask04 */
-
 void laserWorkTask04(void *argument)
 {
   /* USER CODE BEGIN laserWorkTask04 */
@@ -901,11 +907,10 @@ void laserWorkTask04(void *argument)
 	LASER_CONTROL_PARAM *pLaserConfig;
 	pLaserConfig = &laser_ctr_param;
   uint32_t event;
-  uint32_t jdq_Volate_heart=0;
-  uint8_t p2000w_cmdBuff[2];
+  uint32_t jdq_Volate_heart=0; 
   uint8_t l980_cmdBuff[4];
   osStatus_t m_stat;
-
+  osStatus_t p_mtxs;
   unsigned char test_half_v=0;
   for(;;)
   {  
@@ -916,6 +921,7 @@ void laserWorkTask04(void *argument)
     {
       sGenSta.laser_run_B5_timer_status=0;     
       osTimerStop(laserWorkTimer01Handle);
+
     }
     if(event==(EVENTS_LASER_1064_PREPARE_OK_BIT|EVENTS_LASER_JT_ENABLE_BIT))
     {      
@@ -931,16 +937,16 @@ void laserWorkTask04(void *argument)
         else {  
           if((p2000w_status.ctr_status&P2000W_STA_B0_PULSE_OUT_OK)==P2000W_STA_B0_PULSE_OUT_OK)
           {
-            m_stat=osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-            if(m_stat==osOK)
-            {
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
-              p2000w_cmdBuff[0]=0;
-              p2000w_cmdBuff[1]=0;              
-              app_p2000w_ctr_tansmit(P2000W_CODE_PULSE_OUT,p2000w_cmdBuff);             
-              osMutexRelease(p2000wBusMutex01Handle);  
-              DEBUG_PRINTF("p2000w stop pulse\r\n"); 
-            }            
+              u_p2000w_tx_msg.msg.code=P2000W_CODE_PULSE_OUT;
+              u_p2000w_tx_msg.msg.cmd=0;
+              p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME);
+              if(p_mtxs!=osOK) 
+              {
+                DEBUG_PRINTF("stop pulse fail ,resend once!\r\n");
+                osDelay(P2000W_FRAME_DELAY_TIME);
+                osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+              }
+              else  DEBUG_PRINTF("p2000w stop pulse cmd\r\n");   
           }
           timeout=0;  
           do
@@ -955,16 +961,16 @@ void laserWorkTask04(void *argument)
           }while((p2000w_status.ctr_status&P2000W_STA_B0_PULSE_OUT_OK)==P2000W_STA_B0_PULSE_OUT_OK); 
           if((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)==P2000W_STA_B4_RELAY_OK)
           {
-            m_stat=osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-            if(m_stat==osOK)
+            u_p2000w_tx_msg.msg.code=P2000W_CODE_RELEY_CTR;
+            u_p2000w_tx_msg.msg.cmd=0;
+            p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME);
+            if(p_mtxs!=osOK) 
             {
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
-              p2000w_cmdBuff[0]=0;
-              p2000w_cmdBuff[1]=0;              
-              app_p2000w_ctr_tansmit(P2000W_CODE_RELEY_CTR,p2000w_cmdBuff);  
-              osMutexRelease(p2000wBusMutex01Handle);
-              DEBUG_PRINTF("p2000w close reley\r\n");      
-            }            
+              DEBUG_PRINTF("reley off fail ,resend once!\r\n");
+              osDelay(P2000W_FRAME_DELAY_TIME);
+              osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+            }
+            else DEBUG_PRINTF("p2000w close reley\r\n");    
           }
           timeout=0;  
           do
@@ -978,17 +984,17 @@ void laserWorkTask04(void *argument)
             }          
           }while((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)==P2000W_STA_B4_RELAY_OK); 
           if((p2000w_status.ctr_status&P2000W_STA_B3_PRO_HOT_OK)==P2000W_STA_B3_PRO_HOT_OK)
-          {
-            m_stat=osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-            if(m_stat==osOK)
+          {  
+            u_p2000w_tx_msg.msg.code=P2000W_CODE_PRO_HOT_CTR;
+            u_p2000w_tx_msg.msg.cmd=0;
+            p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME);
+            if(p_mtxs!=osOK) 
             {
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
-              p2000w_cmdBuff[0]=0;//exit prohot
-              p2000w_cmdBuff[1]=0;
-              app_p2000w_ctr_tansmit(P2000W_CODE_PRO_HOT_CTR,p2000w_cmdBuff); 
-              osMutexRelease(p2000wBusMutex01Handle);  
-              DEBUG_PRINTF("p2000w exit prohot\r\n");
+              DEBUG_PRINTF("exit prohot fail ,resend once!\r\n");
+              osDelay(P2000W_FRAME_DELAY_TIME);
+              osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
             }           
+            else DEBUG_PRINTF("p2000w exit prohot\r\n");
           }  
           timeout=0;  
           do
@@ -1036,36 +1042,32 @@ void laserWorkTask04(void *argument)
         { 
           #if 0          
             //test                       
-            test_V=laser_ctr_param.ledLightLevel*4+200;//200~600V; 
-            m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-            if(m_stat==osOK)
-            {          
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
-              app_p2000w_out_voltage_set(test_V);   
-              unsigned short int pulse_width_offeset=0;
-              if(p2000w_ctr_param.outVoltageSet>300)
-              {
-                pulse_width_offeset =((p2000w_ctr_param.outVoltageSet)*2/75)-8;//- (p2000w_ctr_param.outVoltageSet-350) *0.08;
-             //   app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-20);//pulse_width_offeset>>1);//
-              }
-              else  pulse_width_offeset=20;         
-              app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-pulse_width_offeset);//8us 滤波迟滞         
-              osMutexRelease(p2000wBusMutex01Handle);
-              DEBUG_PRINTF("p2000w vol=%dv\r\n",test_V);
+            test_V=laser_ctr_param.ledLightLevel*4+200;//200~600V;
+            osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
+            app_p2000w_out_voltage_set(test_V);   
+            unsigned short int pulse_width_offeset=0;
+            if(p2000w_ctr_param.outVoltageSet>300)
+            {
+              pulse_width_offeset =((p2000w_ctr_param.outVoltageSet)*2/75)-8;//- (p2000w_ctr_param.outVoltageSet-350) *0.08;
+            //app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-20);//pulse_width_offeset>>1);//
             }
+            else  pulse_width_offeset=20;         
+            app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-pulse_width_offeset);//8us 滤波迟滞   
+            DEBUG_PRINTF("p2000w vol=%dv\r\n",test_V);
             osDelay(P2000W_FRAME_DELAY_TIME);
           #endif
           if((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)!=P2000W_STA_B4_RELAY_OK)
           {
-            m_stat=osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-            if(m_stat==osOK)
-            { 
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);            
-              p2000w_cmdBuff[0]=1;
-              p2000w_cmdBuff[1]=0;
-              app_p2000w_ctr_tansmit(P2000W_CODE_RELEY_CTR,p2000w_cmdBuff);                
-              osMutexRelease(p2000wBusMutex01Handle);               
-            }            
+              u_p2000w_tx_msg.msg.code=P2000W_CODE_RELEY_CTR;
+              u_p2000w_tx_msg.msg.cmd=  1;
+              osStatus_t p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME);
+              if(p_mtxs!=osOK)   
+              {
+                DEBUG_PRINTF("p2000w relay on fail ,resend once!\r\n");
+                osDelay(P2000W_FRAME_DELAY_TIME);
+                osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+              }
+              else  DEBUG_PRINTF("p2000w reley on cmd\r\n"); 
           }            
           timeout=0;  
           do
@@ -1079,15 +1081,16 @@ void laserWorkTask04(void *argument)
           }while((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)!=P2000W_STA_B4_RELAY_OK); 
           if((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)==P2000W_STA_B4_RELAY_OK)
           {
-            m_stat=osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-            if(m_stat==osOK)
-            { 
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);            
-              p2000w_cmdBuff[0]=1;
-              p2000w_cmdBuff[1]=0;
-              app_p2000w_ctr_tansmit(P2000W_CODE_PULSE_OUT,p2000w_cmdBuff);                
-              osMutexRelease(p2000wBusMutex01Handle);               
-            }            
+              u_p2000w_tx_msg.msg.code=P2000W_CODE_PULSE_OUT;
+              u_p2000w_tx_msg.msg.cmd=  1;
+              osStatus_t p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME);
+              if(p_mtxs!=osOK)   
+              {
+                DEBUG_PRINTF("p2000w pulse out fail ,resend once!\r\n");
+                osDelay(P2000W_FRAME_DELAY_TIME);
+                osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+              }
+              else  DEBUG_PRINTF("p2000w start pulse cmd\r\n");
           }           
           timeout=0;  
           do
@@ -1122,7 +1125,7 @@ void laserWorkTask04(void *argument)
             {               
               if(pLaserConfig->treatmentWaterLevel!=0||pLaserConfig->airPressureLevel!=0)
               {   
-                app_deflate_air_solenoid(ENABLE);             
+                app_deflate_air_solenoid(ENABLE);                             
                 if(pLaserConfig->treatmentWaterLevel!=0) tmc2226_start(TMC_WATER_OUT_DIR_VALUE,laser_ctr_param.treatmentWaterLevel,CONTINUOUS_STEPS_COUNT);                  
               }  
             }                 
@@ -1181,7 +1184,7 @@ void laserWorkTask04(void *argument)
             {     
               if(sEnvParam.laser_1064_energy>laser_ctr_param.laserEnerge*1.40)   
               {  
-                sGenSta.laser_param_B01_energe_status=1;//2; //over load
+                sGenSta.laser_param_B01_energe_status=2; //over load
               }  
               else sGenSta.laser_param_B01_energe_status=1;
             }            
@@ -1212,15 +1215,16 @@ void laserWorkTask04(void *argument)
           }  
           if((p2000w_status.ctr_status&P2000W_STA_B0_PULSE_OUT_OK)==P2000W_STA_B0_PULSE_OUT_OK)
           {
-            m_stat=osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-            if(m_stat==osOK)
-            {    
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
-              p2000w_cmdBuff[0]=0;
-              p2000w_cmdBuff[1]=0;
-              app_p2000w_ctr_tansmit(P2000W_CODE_PULSE_OUT,p2000w_cmdBuff); 
-              osMutexRelease(p2000wBusMutex01Handle);               
-            }  
+            u_p2000w_tx_msg.msg.code=P2000W_CODE_PULSE_OUT;
+            u_p2000w_tx_msg.msg.cmd=  0;
+            osStatus_t p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME);
+            if(p_mtxs!=osOK)   
+            {
+              DEBUG_PRINTF("p2000w pulse out stop fail ,resend once!\r\n");
+              osDelay(P2000W_FRAME_DELAY_TIME);
+              osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+            }
+            else  DEBUG_PRINTF("p2000w stop pulse cmd\r\n");
           }
           timeout=0;  
           do
@@ -1313,8 +1317,7 @@ void laserWorkTask04(void *argument)
             osDelay(L980_CAN_MINI_TIME_MS);
             timeout+=L980_CAN_MINI_TIME_MS;
             if(timeout>L980_MAX_PROHOT_WAIT_TIME)
-            {           
-              //l980 power off 
+            { //l980 power off 
               break;
             }          
           }while((u_s_l980.sta.staByte&L980_STA_PROHOT_BIT1)==L980_STA_PROHOT_BIT1);  
@@ -1509,7 +1512,6 @@ void laserWorkTask04(void *argument)
 * @retval None
 */
 /* USER CODE END Header_fastAuxTask05 */
-
 void fastAuxTask05(void *argument)
 {
   /* USER CODE BEGIN fastAuxTask05 */
@@ -1704,8 +1706,7 @@ void canReceiveTask07(void *argument)
   for(;;)
   {
     /*******************CAN RX-DATA********************/
-    can_rec_timeout=osKernelGetTickCount();	
-    
+    can_rec_timeout=osKernelGetTickCount();	    
     while(FDCAN1_Receive_Msg(buff, &Identifier, &len))
     {   
       can_recFlag=1;
@@ -1891,6 +1892,7 @@ void laserProhotTask09(void *argument)
   unsigned char  local_proHotCtr=0,local_lasertype;	
   unsigned char  cmdBuff[4]={0};
   osStatus_t m_stat;
+  osStatus_t p_mtxs;
   for(;;) 
   {
 		osStatus_t sta = osSemaphoreAcquire(laserPrapareReqSem03Handle,portMAX_DELAY);
@@ -1997,14 +1999,19 @@ void laserProhotTask09(void *argument)
           osDelay(P2000W_FRAME_TIMEOUT); 
           app_high_voltage_solenoid(ENABLE);
           osDelay(P2000W_FRAME_TIMEOUT);
-          m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-          if(m_stat==osOK)
-          { //re connect
-            osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME); 
-            cmdBuff[0] = 0;
-            app_p2000w_ctr_tansmit(P2000W_CODE_RECONNECT,cmdBuff);
-            osMutexRelease(p2000wBusMutex01Handle);           
-          }    
+          //re connect
+          u_p2000w_tx_msg.msg.code=P2000W_CODE_RECONNECT;
+          u_p2000w_tx_msg.msg.cmd=1; 
+          p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME); 
+          {
+            if(p_mtxs!=osOK) 
+            {
+              DEBUG_PRINTF("set puls width ,resend once!\r\n");
+              osDelay(P2000W_FRAME_DELAY_TIME);
+              osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0); 
+            }
+          } 
+              
         }       
         timeout = 0;
         do
@@ -2021,55 +2028,84 @@ void laserProhotTask09(void *argument)
         {   
           p2000w_ctr_param.outVoltageSet = app_laser_1064_energe_to_voltage(laser_ctr_param.laserEnerge);  
           p2000w_ctr_param.freqSet = laser_ctr_param.laserFreq; 
-          p2000w_ctr_param.pulseWidthSet = u_sys_param.sys_config_param.laser_pulse_width_us;
-          m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-          if(m_stat==osOK)
-          {   
-            #if 1  
-            osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME); 
-            unsigned short int pulse_width_offeset=0;
-            if(p2000w_ctr_param.outVoltageSet>300)
+          p2000w_ctr_param.pulseWidthSet = u_sys_param.sys_config_param.laser_pulse_width_us;          
+          #if 1  
+          unsigned short int pulse_width_offeset=0;
+          if(p2000w_ctr_param.outVoltageSet>300)
+          {
+            pulse_width_offeset =(28-(unsigned short int)(0.08*p2000w_ctr_param.outVoltageSet))>>2;          
+          }
+          else
+          {
+            //pulse_width_offeset=(28+(unsigned short int)(0.12*(300-p2000w_ctr_param.outVoltageSet)))>>1;   
+            pulse_width_offeset=(38-(unsigned short int)(0.06*p2000w_ctr_param.outVoltageSet));  
+          }      
+          u_p2000w_tx_msg.msg.code=P2000W_CODE_PULSE_WIDTH;
+          //u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet;         
+          u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet-pulse_width_offeset;//8us 滤波迟滞  
+          p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME); 
+          {
+            if(p_mtxs!=osOK) 
             {
-              pulse_width_offeset =(28-(unsigned short int)(0.08*p2000w_ctr_param.outVoltageSet))>>2;          
+              DEBUG_PRINTF("set puls width ,resend once!\r\n");
+              osDelay(P2000W_FRAME_DELAY_TIME);
+              osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0); 
+            }
+          } 
+          u_p2000w_tx_msg.msg.code=P2000W_CODE_PULSE_FREQ;         
+          u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.freqSet;
+          p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME); 
+          {
+            if(p_mtxs!=osOK) 
+            {
+              DEBUG_PRINTF("set freq ,resend once!\r\n");
+              osDelay(P2000W_FRAME_DELAY_TIME);
+              osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0); 
+            }
+          }  
+          u_p2000w_tx_msg.msg.code=P2000W_CODE_STA_QUERY;
+          u_p2000w_tx_msg.msg.cmd=0;
+          p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME); 
+          {
+            if(p_mtxs!=osOK) 
+            {
+              DEBUG_PRINTF(" sta req ,resend once!\r\n");
+              osDelay(P2000W_FRAME_DELAY_TIME);
+              osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0); 
+            }
+          }   
+          u_p2000w_tx_msg.msg.code=P2000W_CODE_VOLTAGE_SET;
+          u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.outVoltageSet;
+          p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME);
+          if(p_mtxs!=osOK) 
+          {
+            DEBUG_PRINTF("set voltage fial ,resend once!\r\n");
+            osDelay(P2000W_FRAME_DELAY_TIME);
+            osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+          }
+          DEBUG_PRINTF("lasr_vol=%dv freq=%dHz pulseW=%dus",p2000w_ctr_param.outVoltageSet,p2000w_ctr_param.freqSet,p2000w_ctr_param.pulseWidthSet);
+          #else   
+          
+          osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_TIMEOUT);
+          app_p2000w_v_q_set(p2000w_ctr_param.outVoltageSet,p2000w_ctr_param.freqSet,p2000w_ctr_param.pulseWidthSet); 
+                        
+          #endif             
+          osDelay(P2000W_FRAME_TIMEOUT);
+          if((p2000w_status.ctr_status&P2000W_STA_B3_PRO_HOT_OK)!=P2000W_STA_B3_PRO_HOT_OK)
+          {
+            u_p2000w_tx_msg.msg.code=P2000W_CODE_PRO_HOT_CTR;
+            u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.proHotCtr;
+            p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+            if(p_mtxs==osOK)
+            {
+              DEBUG_PRINTF("prohot req\r\n");
             }
             else
             {
-              //pulse_width_offeset=(28+(unsigned short int)(0.12*(300-p2000w_ctr_param.outVoltageSet)))>>1;   
-              pulse_width_offeset=(38-(unsigned short int)(0.06*p2000w_ctr_param.outVoltageSet));  
-            }      
-            app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-pulse_width_offeset);//8us 滤波迟滞
-            osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
-            app_p2000w_pulse_freq_set(p2000w_ctr_param.freqSet); 
-            osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
-            cmdBuff[0] = 0;
-            app_p2000w_ctr_tansmit(P2000W_CODE_STA_QUERY,cmdBuff);            
-            osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
-            app_p2000w_out_voltage_set(p2000w_ctr_param.outVoltageSet); 
-            DEBUG_PRINTF("lasr_vol=%dv freq=%dHz pulseW=%dus",p2000w_ctr_param.outVoltageSet,p2000w_ctr_param.freqSet,p2000w_ctr_param.pulseWidthSet);
-            #else   
-            m_stat=osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-            if(m_stat==osOK)
-            {
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_TIMEOUT);
-              app_p2000w_v_q_set(p2000w_ctr_param.outVoltageSet,p2000w_ctr_param.freqSet,p2000w_ctr_param.pulseWidthSet); 
-              osMutexRelease(p2000wBusMutex01Handle); 
-            }             
-            #endif 
-            osMutexRelease(p2000wBusMutex01Handle);                
-          }  
-          osDelay(P2000W_FRAME_DELAY_TIME);
-          if((p2000w_status.ctr_status&P2000W_STA_B3_PRO_HOT_OK)!=P2000W_STA_B3_PRO_HOT_OK)
-          {
-            m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-            if(m_stat==osOK)
-            { 
-              osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
-              cmdBuff[0]=p2000w_ctr_param.proHotCtr&0xFF;
-              cmdBuff[1]=(p2000w_ctr_param.proHotCtr>>8)&0xFF;              
-              app_p2000w_ctr_tansmit(P2000W_CODE_PRO_HOT_CTR,cmdBuff); 
-              osMutexRelease(p2000wBusMutex01Handle);
-              DEBUG_PRINTF("prohot req\r\n");
-            }    
+              DEBUG_PRINTF("prohot req fail,resend once !\r\n");
+              osDelay(P2000W_FRAME_DELAY_TIME);  
+              osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+            }
           }                            
           timeout = 0;
           do
@@ -2085,17 +2121,19 @@ void laserProhotTask09(void *argument)
           if((p2000w_status.ctr_status&P2000W_STA_B3_PRO_HOT_OK)==P2000W_STA_B3_PRO_HOT_OK) 
           {
             if((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)!=P2000W_STA_B4_RELAY_OK)
-            {              
-              m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);           
-              if(m_stat==osOK)
+            {               
+              u_p2000w_tx_msg.msg.code=P2000W_CODE_RELEY_CTR;
+              u_p2000w_tx_msg.msg.cmd=1;
+              p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+              if(p_mtxs==osOK)
               {
-                osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
-                cmdBuff[0]=1;
-                cmdBuff[1]=0;              
-                app_p2000w_ctr_tansmit(P2000W_CODE_RELEY_CTR,cmdBuff);             
-                osMutexRelease(p2000wBusMutex01Handle);  
-                DEBUG_PRINTF("p2000w reley on \r\n");             
-              }  
+                DEBUG_PRINTF("p2000w reley on \r\n"); 
+              }
+              else{
+                DEBUG_PRINTF("p2000w reley on fail,resend once\r\n"); 
+                osDelay(P2000W_FRAME_DELAY_TIME);  
+                osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+              }
             }       
             timeout=0;
             do
@@ -2120,16 +2158,18 @@ void laserProhotTask09(void *argument)
             else
             {
               DEBUG_PRINTF("laser 1064 reley open fail");  
-              m_stat = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-              if(m_stat==osOK)
-              { 
-                osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);  
-                cmdBuff[0]=0;
-                cmdBuff[1]=0;              
-                app_p2000w_ctr_tansmit(P2000W_CODE_PRO_HOT_CTR,cmdBuff); 
-                osMutexRelease(p2000wBusMutex01Handle);
-                DEBUG_PRINTF(" exit prohot!\r\n"); 
-              }    
+              u_p2000w_tx_msg.msg.code=P2000W_CODE_PRO_HOT_CTR;
+              u_p2000w_tx_msg.msg.cmd=0;
+              p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+              if(p_mtxs==osOK)
+              {
+                DEBUG_PRINTF("exit prohot \r\n"); 
+              }
+              else{
+                DEBUG_PRINTF("exit prohot fail,resend once\r\n"); 
+                osDelay(P2000W_FRAME_DELAY_TIME);  
+                osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+              }
               laser_ctr_param.proHotCtr=0;
               local_proHotCtr=0;
             }
@@ -2180,7 +2220,6 @@ void laserProhotTask09(void *argument)
   }
   /* USER CODE END laserProhotTask09 */
 }
-
 
 /* USER CODE BEGIN Header_ge2117ManageTask10 */
 /**
@@ -2277,9 +2316,9 @@ void p2000wReceiveTask12(void *argument)
 {
   /* USER CODE BEGIN p2000wReceiveTask12 */
   /* Infinite loop */
-  unsigned short int packLen;
-  unsigned char transBuff[8];
+  unsigned short int packLen;  
   unsigned  int heartTimeOut=0;
+  unsigned char pTxMessageBuff[4]={0};
   app_p2000w_init();
 	osTimerStart(p2000wHeartTimer04Handle,P2000W_FRAME_DELAY_TIME);
   for(;;)
@@ -2287,61 +2326,70 @@ void p2000wReceiveTask12(void *argument)
     osStatus_t status  = osSemaphoreAcquire(p2000wHeartBinarySem07Handle,10);
     if(status==osOK)
     {  
-      osStatus_t m_stat=osMutexAcquire(p2000wBusMutex01Handle,10);
-      if(m_stat==osOK) 
-      { 
-        app_p2000w_ctr_tansmit(P2000W_CODE_STA_QUERY,transBuff);
-        osMutexRelease(p2000wBusMutex01Handle);
-        osDelay(1);
-      } 
+      osStatus_t p_m= osMessageQueueGet(p2000wTxMessageQueue04Handle,pTxMessageBuff,0,0);
+      if(p_m==osOK)   {
+        U_P2000W_TX_MSG *p_u_msg;
+        p_u_msg = (U_P2000W_TX_MSG*)pTxMessageBuff;        
+        app_p2000w_ctr_tansmit(p_u_msg->msg.code,&p_u_msg->data[2]);
+      }
+      else {//refresh status
+        app_p2000w_ctr_tansmit(P2000W_CODE_STA_QUERY,&u_p2000w_tx_msg.data[2]);
+      }
+      osDelay(10);
+    } 
+    packLen = app_p2000w_package_check();
+    if(packLen==0)
+    {        
+      heartTimeOut += 20;
+      if(heartTimeOut>P2000W_FRAME_TIMEOUT)
+      {//heart err 
+        heartTimeOut = 0;  
+        if(p2000w_ctr_param.p2000wHeart!=0)
+        {            
+          DEBUG_PRINTF("p2000W disconnect!\r\n");  
+          p2000w_ctr_param.p2000wHeart=0;
+          if((p2000w_status.ctr_status&P2000W_STA_B3_PRO_HOT_OK)==P2000W_STA_B3_PRO_HOT_OK)         
+          {//p2000W,exit prohot 
+            osSemaphoreRelease(laserCloseSem05Handle);
+          }
+          memset(&p2000w_status,0,sizeof(P_2000W_STATUS));//clear
+        }
+      }  
+    }      
+    else 
+    {
+      if(packLen>5)        
+      {  
+        heartTimeOut=0;
+        if(p2000w_ctr_param.p2000wHeart==0) 
+        {
+          DEBUG_PRINTF(" p2000W connect succcess!\r\n");
+          p2000w_ctr_param.p2000wHeart =  1;
+        }
+        app_p2000w_status_handle(&p2000w_status);
+      }       
     } 
     if(p2000w_status.init_status==4)
     {
+      app_high_voltage_solenoid(DISABLE);
+      osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
       DEBUG_PRINTF("p2000w init fail ,restart\r\n");       
-      app_p2000w_init();        
-      osStatus_t m_stat2 = osMutexAcquire(p2000wBusMutex01Handle,P2000W_FRAME_TIMEOUT);
-      if(m_stat2==osOK)
-      { //re connect
-        osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);   
-        app_p2000w_ctr_tansmit(P2000W_CODE_RECONNECT,transBuff);
-        osMutexRelease(p2000wBusMutex01Handle);           
-      }    
-    }
-    else
-    {   
-      packLen = app_p2000w_package_check();
-      if(packLen==0)
-      {        
-        heartTimeOut += 10;
-        if(heartTimeOut>P2000W_FRAME_TIMEOUT)
-        {//heart err 
-          heartTimeOut = 0;  
-          if(p2000w_ctr_param.p2000wHeart!=0)
-          {            
-            DEBUG_PRINTF("p2000W disconnect!\r\n");  
-            p2000w_ctr_param.p2000wHeart=0;
-            if((p2000w_status.ctr_status&P2000W_STA_B3_PRO_HOT_OK)==P2000W_STA_B3_PRO_HOT_OK)         
-            {//p2000W,exit prohot 
-              osSemaphoreRelease(laserCloseSem05Handle);
-            }
-            memset(&p2000w_status,0,sizeof(P_2000W_STATUS));//clear
-          }
-        }  
-      }      
-      else 
+      app_p2000w_init(); 
+      osDelay(P2000W_FRAME_DELAY_TIME);    
+      u_p2000w_tx_msg.msg.code=P2000W_CODE_RECONNECT;
+      u_p2000w_tx_msg.msg.cmd=0;
+      osStatus_t status2  = osSemaphoreAcquire(p2000wHeartBinarySem07Handle,P2000W_FRAME_DELAY_TIME*2);
+      if(status2==osOK)
       {
-        if(packLen>5)        
-        {  
-          heartTimeOut=0;
-          if(p2000w_ctr_param.p2000wHeart==0) 
-          {
-            DEBUG_PRINTF(" p2000W connect succcess!\r\n");
-            p2000w_ctr_param.p2000wHeart =  1;
-          }
-          app_p2000w_status_handle(&p2000w_status);
+        osStatus_t p_m= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME);
+        if(p_m!=osOK)
+        { //re connect        
+          DEBUG_PRINTF("p2000w reconnect cmd tx fail resend once ! \r\n");  
+          osDelay(P2000W_FRAME_DELAY_TIME);   
+          osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);         
         }       
-      } 
-    }    
+      }
+    }  
     osDelay(10);
   }
   

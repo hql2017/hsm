@@ -492,21 +492,26 @@ void filter_ad1(void)
     ad2vale = ad_square_value(ad2Buff,MAX_AD2_ENERGE_BUFF_LENGTH);
     #else
     uint32_t sum = 0U;
-    unsigned short int i = 0;
+    unsigned short int i = 0,j=0;
     static unsigned char levelIdx = 0; 
-    sum = 0; 
+    //90%计算峰值;//50%计算脉宽和功率;
+    unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)>>1;//50%; 
+    // Vmax;
     for(i = 0; i < pulse_ad_count; i++)
-    {//采集前100us内中间90us(90/1)(90)
-      //if(ad2Buff[i]>=ad2Buff[0]&&ad2Buff[i]>546)//4000)//546) //>25mV:546      
-      if(i > 9 && i < (pulse_ad_count - 10))
-      {   
-        sum += ad2Buff[i];
+    {
+      if(ad2Buff[i]>max_half_value)
+      {        
+        //if(ad2Buff[i]>max_half_value*0.90)
+        {
+          j++;
+          sum += ad2Buff[i];
+        }
       }             
     } 
     /* store running levels in a circular 8-slot buffer */
     const unsigned char idx = levelIdx & 0x07;
-    if (pulse_ad_count > 20) {
-      ad2hle[idx] = (unsigned short int)(sum / (pulse_ad_count - 20));
+    if (j > 1) {
+      ad2hle[idx] = (unsigned short int)(sum /j);
     } else {
       ad2hle[idx] = (unsigned short int)sum;
     }
@@ -516,7 +521,7 @@ void filter_ad1(void)
     {     
       if(ad2hle[i]==0) sum += ad2hle[0];
       else sum += ad2hle[i];       
-    }  
+    } 
     ad2vale = (unsigned short int)(sum >> 3);   
     #endif 
     #if 0
@@ -599,6 +604,7 @@ void app_get_adc_value(unsigned char adChannel,float *vBuff)
   {
     temp=(ad2vale*AD_VREF_VOLTAGE)>>16;  
     *vBuff= temp*1.0 ;//LASER064ADAD, 
+  
    #if 0
    DEBUG_PRINTF("laserAD=");
    for(int i=0;i<MAX_AD2_ENERGE_BUFF_LENGTH;i++)
@@ -606,8 +612,7 @@ void app_get_adc_value(unsigned char adChannel,float *vBuff)
     DEBUG_PRINTF(" %d",ad2Buff[i]);
    }
    DEBUG_PRINTF(" leve=%d ad2=%d \r\n",ad2vale,temp);   
-   #endif 
-   ad2vale=0;//clear fresh
+   #endif    
   }
   else if(adChannel==AD1_OCP_Ibus_INDEX)
   {

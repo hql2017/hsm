@@ -29,6 +29,7 @@ typedef struct {
    unsigned short int end;// 0x0A0D 
 }__attribute__ ((packed)) PWR_2000W_APP_PACKAGE;//光纤应用数据解析
 //0~200mJ =5*40
+U_P2000W_TX_MSG u_p2000w_tx_msg;
 P_2000W_STATUS p2000w_status;
 P_2000W_SET_PARAM p2000w_ctr_param;	
 static unsigned char p2000w_soft_version[5]={0x14,0xEA,0x07,0x04,0x06};
@@ -401,8 +402,8 @@ void app_p2000w_v_q_set(unsigned short int voltage,unsigned short int freq,unsig
  void app_p2000w_ctr_tansmit(unsigned char code,unsigned char *ctrData)
  {	
 	HAL_StatusTypeDef err=HAL_OK;	
-	unsigned short int cmdTemp;
-	cmdTemp=(ctrData[1]<<8)|ctrData[0];
+	
+	unsigned short int cmdTemp=(ctrData[1]<<8)|ctrData[0];
 	if(code==P2000W_CODE_PRO_HOT_CTR)
 	{
 		if(cmdTemp!=0)
@@ -437,7 +438,6 @@ void app_p2000w_v_q_set(unsigned short int voltage,unsigned short int freq,unsig
 		{			
 			err = app_p2000w_transmit(code,ctrData,2);			
 		}
-		
 	}
 	else if (code==P2000W_CODE_PULSE_OUT)
 	{
@@ -478,6 +478,18 @@ void app_p2000w_v_q_set(unsigned short int voltage,unsigned short int freq,unsig
 		{
 			app_p2000w_re_connect_req();
 		}
+	}
+	else if(code==P2000W_CODE_VOLTAGE_SET)
+	{
+		app_p2000w_out_voltage_set(cmdTemp);
+	}
+	else if(code==P2000W_CODE_PULSE_FREQ)
+	{
+		app_p2000w_pulse_freq_set(cmdTemp);
+	}
+	else if(code==P2000W_CODE_PULSE_WIDTH)
+	{
+		app_p2000w_pulse_width_set(cmdTemp);
 	}
 	else 
 	{
@@ -553,6 +565,8 @@ void app_p2000w_pulse_start(unsigned char cmd)
 	}
 }
  
+
+
 
 
 

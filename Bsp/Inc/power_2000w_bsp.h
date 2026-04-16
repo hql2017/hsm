@@ -55,18 +55,25 @@ typedef struct {
 	unsigned short int pulseWidthSet;//电脉宽
 	unsigned short int proHotCtr;//预燃控制指令	
 }P_2000W_SET_PARAM;//设置数据
+
+typedef struct {	 
+	unsigned char code;// code
+	unsigned char reverse;//保留,len
+	unsigned short int cmd;//cmd 	
+}__attribute__((packed)) P_2000W_TX_MESSAGE;
+typedef union{
+	P_2000W_TX_MESSAGE msg;
+	unsigned char data[sizeof(P_2000W_TX_MESSAGE)];
+}U_P2000W_TX_MSG;
+extern U_P2000W_TX_MSG u_p2000w_tx_msg;
+extern P_2000W_STATUS p2000w_status;
 extern P_2000W_SET_PARAM p2000w_ctr_param;	
 void app_p2000W_receive_config( void );
 void app_p2000w_init( void );
  unsigned short int app_p2000w_package_check(void) ;
- void app_p2000w_read_status_req(void);
- void app_p2000w_out_voltage_set(unsigned short int voltage);
- void app_p2000w_pulse_freq_set(unsigned short int  freq);
- void app_p2000w_pulse_width_set(unsigned short int  pulseWidthUs);
  void app_p2000w_ctr_tansmit(unsigned char code,unsigned char *ctrData);
  void app_p2000w_v_q_set(unsigned short int voltage,unsigned short int freq,unsigned short int  pulseWidthUs);
 
- void app_p2000w_pulse_start(unsigned char cmd);//0 stop
  
  #define LPUART_MAX_BUFF_LENGTH 64
 
