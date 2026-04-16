@@ -29,7 +29,16 @@ extern "C" {
 #include "main.h"
 
 /* USER CODE BEGIN Includes */
-
+typedef struct {	 
+  unsigned char typeCode;//帧类型，0:HMI;!=0:L980_code	
+	unsigned char dataLen;//保留,len
+	unsigned char buff[6];	
+}__attribute__((packed)) CAN_TX_MESSAGE;
+typedef union{
+	CAN_TX_MESSAGE msg;
+	unsigned char data[sizeof(CAN_TX_MESSAGE)];
+}U_CAN_TX_MSG;
+extern U_CAN_TX_MSG u_CAN_tx_msg;
 /* USER CODE END Includes */
 
 extern FDCAN_HandleTypeDef hfdcan1;
