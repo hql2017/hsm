@@ -30,7 +30,7 @@ extern "C" {
 
 /* USER CODE BEGIN Includes */
 typedef struct {	 
-  unsigned char code;//帧类型，0:HMI;!=0:L980	
+  unsigned char typeCode;//帧类型，0:HMI;!=0:L980_code	
 	unsigned char dataLen;//保留,len
 	unsigned char buff[6];	
 }__attribute__((packed)) CAN_TX_MESSAGE;

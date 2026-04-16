@@ -24,6 +24,7 @@
 void FDCAN1_filter_config(void);
 
 static FDCAN_RxHeaderTypeDef RxHeader;
+
 /* USER CODE END 0 */
 
 FDCAN_HandleTypeDef hfdcan1;
