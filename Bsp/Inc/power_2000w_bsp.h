@@ -59,7 +59,7 @@ typedef struct {
 typedef struct {	 
 	unsigned char code;// code
 	unsigned char reverse;//保留,len
-	short int cmd;//cmd 	
+	unsigned short int cmd;//cmd 	
 }__attribute__((packed)) P_2000W_TX_MESSAGE;
 typedef union{
 	P_2000W_TX_MESSAGE msg;

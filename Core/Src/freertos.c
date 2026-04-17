@@ -338,10 +338,18 @@ void app_sram_status_monitor( void );
 void app_circle_water_PTC_manage(float circleWaterTmprature,unsigned  int sysTimeMs);
 
 void app_p2000w_status_handle( P_2000W_STATUS *pSta );
+
+
 #ifdef ONE_WIRE_BUS_SLAVE
 unsigned int  app_owb_key_scan(unsigned short int timeMs);
 #endif
 U_CAN_TX_MSG u_CAN_tx_msg;
+//1064能量值对应电压表0~200mJ
+
+static unsigned short int energe_140us_voltage[41]={200,210,220,230,240,245,278,
+  286,295,306,313,320,327,334,339,347,354,361,368,375,381,
+  387,393,398,403,408,413,423,428,435,443,452,459,463,467,
+472,480,484,488,492,496};
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -901,7 +909,7 @@ void keyScanTask03(void *argument)
 * @param argument: Not used
 * @retval None
 */
-static unsigned short int test_V;
+
 /* USER CODE END Header_laserWorkTask04 */
 void laserWorkTask04(void *argument)
 {
@@ -1050,20 +1058,19 @@ void laserWorkTask04(void *argument)
         if(sGenSta.laser_run_B1_laser_out_status==0)
         { 
           #if 0          
-            //test                       
-            test_V=laser_ctr_param.ledLightLevel*4+200;//200~600V;
-            osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_DELAY_TIME);
-            app_p2000w_out_voltage_set(test_V);   
-            unsigned short int pulse_width_offeset=0;
-            if(p2000w_ctr_param.outVoltageSet>300)
-            {
-              pulse_width_offeset =((p2000w_ctr_param.outVoltageSet)*2/75)-8;//- (p2000w_ctr_param.outVoltageSet-350) *0.08;
-            //app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-20);//pulse_width_offeset>>1);//
-            }
-            else  pulse_width_offeset=20;         
-            app_p2000w_pulse_width_set(p2000w_ctr_param.pulseWidthSet-pulse_width_offeset);//8us 滤波迟滞   
-            DEBUG_PRINTF("p2000w vol=%dv\r\n",test_V);
+          //test                              
+          unsigned short int test_V=laser_ctr_param.ledLightLevel*1+laser_ctr_param.timerCtr*10+200;//energe_140us_voltage[energeNum];//200~600V;          
+          u_p2000w_tx_msg.msg.code=P2000W_CODE_VOLTAGE_SET;
+          u_p2000w_tx_msg.msg.cmd=test_V;
+          p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME);
+          if(p_mtxs!=osOK) 
+          {
+            DEBUG_PRINTF("set test voltage fial ,resend once!\r\n");
             osDelay(P2000W_FRAME_DELAY_TIME);
+            osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0);
+          }
+          else DEBUG_PRINTF("set test voltage=%dV\r\n",test_V);
+          osDelay(P2000W_FRAME_DELAY_TIME);
           #endif
           if((p2000w_status.ctr_status&P2000W_STA_B4_RELAY_OK)!=P2000W_STA_B4_RELAY_OK)
           {
@@ -1188,7 +1195,7 @@ void laserWorkTask04(void *argument)
               sEnvParam.laser_1064_energy=p_avg*1.575/laser_ctr_param.laserFreq;//能量
             }
             float peak_P = (sEnvParam.laser_1064_energy)/u_sys_param.sys_config_param.laser_pulse_width_us;//peak  power ,峰值功率 
-            DEBUG_PRINTF("v-set=%dvE=%.1fmJ p_avg=%.2fmw feedBck=%.1fmV pulseCount=%d rdb=%d 980=%d\r\n",test_V,sEnvParam.laser_1064_energy,p_avg,e_feedback,u_sys_param.sys_config_param.laser_pulse_count,u_sys_param.sys_config_param.RDB_use_timeS,u_sys_param.sys_config_param.laser_use_timeS);              
+            DEBUG_PRINTF("E=%.1fmJ p_avg=%.2fmw feedBck=%.1fmV pulseCount=%d rdb=%d 980=%d\r\n",sEnvParam.laser_1064_energy,p_avg,e_feedback,u_sys_param.sys_config_param.laser_pulse_count,u_sys_param.sys_config_param.RDB_use_timeS,u_sys_param.sys_config_param.laser_use_timeS);              
             if(sEnvParam.laser_1064_energy>0&&laser_ctr_param.laserEnerge>0&&e_feedback>0)
             {     
               if(sEnvParam.laser_1064_energy>laser_ctr_param.laserEnerge*1.40)   
@@ -1450,7 +1457,7 @@ void laserWorkTask04(void *argument)
             {   
               if(sEnvParam.laser_1064_energy>laser_ctr_param.laserEnerge*1.30)   
               {
-                sGenSta.laser_param_B01_energe_status=2; //over load
+                sGenSta.laser_param_B01_energe_status=1;//2; //over load
               }      
               else sGenSta.laser_param_B01_energe_status=1;
             }
@@ -1642,8 +1649,9 @@ void hmiAppTask06(void *argument)
         hmi_can_idle_flag=0;//idle
         if(p_can_tx_msg->msg.typeCode==0)
         {//HMI send package to L980,can_tx_Message[0] is reg addr,can_tx_Message[1] is data len
+          osDelay(L980_CAN_MINI_TIME_MS);
           L980_appReadReq(L980_REG_HEART_STATUS,sizeof(L980_STATUS) );
-        }
+        }        
         else
         {
           L980_appWriteReg(p_can_tx_msg->msg.typeCode,p_can_tx_msg->msg.dataLen,p_can_tx_msg->msg.buff);
@@ -1681,6 +1689,7 @@ void hmiAppTask06(void *argument)
     {
       l980_timer=(-(short int )(laser_ctr_param.timerCtr));
     }
+    
     /*****************激光指示灯***********************/	
     if(l980_timer!=u_l980.set_param.timerSet)
     {     
@@ -1770,7 +1779,7 @@ void canReceiveTask07(void *argument)
           {          
             if(peekLen<fd_canRxLen)
             {  
-              uint16_t packLen=  fd_canRxLen-peekLen; 
+              uint16_t packLen =  fd_canRxLen-peekLen; 
               memcpy(fd_canRxBuff,&fd_canRxBuff[peekLen],packLen); 
               fd_canRxLen-=peekLen;           
             }
@@ -2068,7 +2077,9 @@ void laserProhotTask09(void *argument)
         unsigned char  local_p2000w_err=p2000w_status.error_code; 
         if((local_p2000w_err&P2000W_ERROR_CODE_MASK)==0&&p2000w_ctr_param.p2000wHeart!=0&&(p2000w_status.ctr_status&P2000W_STA_B1_PFC_OK)==P2000W_STA_B1_PFC_OK )         
         {   
-          p2000w_ctr_param.outVoltageSet = app_laser_1064_energe_to_voltage(laser_ctr_param.laserEnerge);  
+                
+          p2000w_ctr_param.outVoltageSet =energe_140us_voltage[laser_ctr_param.laserEnerge/5]; //app_laser_1064_energe_to_voltage(laser_ctr_param.laserEnerge);  
+              
           p2000w_ctr_param.freqSet = laser_ctr_param.laserFreq; 
           p2000w_ctr_param.pulseWidthSet = u_sys_param.sys_config_param.laser_pulse_width_us;          
           #if 1  
@@ -2081,10 +2092,13 @@ void laserProhotTask09(void *argument)
           {
             //pulse_width_offeset=(28+(unsigned short int)(0.12*(300-p2000w_ctr_param.outVoltageSet)))>>1;   
             pulse_width_offeset=(38-(unsigned short int)(0.06*p2000w_ctr_param.outVoltageSet));  
-          }      
+          }   
+             
           u_p2000w_tx_msg.msg.code=P2000W_CODE_PULSE_WIDTH;
-          //u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet;         
-          u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet-pulse_width_offeset;//8us 滤波迟滞  
+          //u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet;  
+          //电源效率和灯管特性在不同频率下有差异，导致脉冲峰值功率变化能量波动，做脉宽补偿（0~12us.1~60Hz）       
+          unsigned short int e_q_cali_pulse = laser_ctr_param.laserFreq/5; 
+          u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet-pulse_width_offeset+e_q_cali_pulse;//8us 滤波迟滞  
           p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME); 
           {
             if(p_mtxs!=osOK) 
@@ -2933,7 +2947,7 @@ void app_set_default_sys_config_param(void)
   /************************************************************************//**
   * @brief laser
   * @param energe ,能量
-  * @note   能量单位mJ;脉宽100~200us；暂时固定脉宽120us用来调试
+  * @note   能量单位mJ;脉宽100~200us；暂时固定脉宽140us用来调试
   * @retval  换算后电压1V
   *****************************************************************************/
   unsigned short int  app_laser_1064_energe_to_voltage(unsigned short int energe)
@@ -3093,6 +3107,8 @@ unsigned short int app_hmi_package_check(unsigned char* pBuff,unsigned short int
                     if (crc_read == crc16Num(pBuff + i, pLen - 4))
                     {
                         HMI_Parse_Data(&pBuff[i], pLen);
+                        u_CAN_tx_msg.msg.typeCode=0;//busy
+                        osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
                         retLen = pLen + i;
                         i += pLen;
                     }
