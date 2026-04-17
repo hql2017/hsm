@@ -23,7 +23,7 @@
 
 #define P2000W_PRO_HOT_WAIT_TIMEOUT  12000 //预燃烧等待时间12s
 #define P2000W_RELEY_WAIT_TIMEOUT  4000//继电器时间3.5s
-#define P2000W_FRAME_TIMEOUT      300//200//阻塞时间ms
+#define P2000W_FRAME_TIMEOUT      500//200//阻塞时间ms
 #define P2000W_FRAME_DELAY_TIME  100 //最小数据帧间隔100
    
 #define P2000W_STATUS_MASK   0x1F//控制字(位值1有效，0失效)

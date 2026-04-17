@@ -500,12 +500,9 @@ void filter_ad1(void)
     for(i = 0; i < pulse_ad_count; i++)
     {
       if(ad2Buff[i]>max_half_value)
-      {        
-        //if(ad2Buff[i]>max_half_value*0.90)
-        {
-          j++;
-          sum += ad2Buff[i];
-        }
+      {  
+        j++;
+        sum += ad2Buff[i];
       }             
     } 
     /* store running levels in a circular 8-slot buffer */
