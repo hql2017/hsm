@@ -58,7 +58,7 @@ void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 107;
+  htim2.Init.Prescaler = 53;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 99;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -111,7 +111,7 @@ void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 134;
+  htim3.Init.Prescaler = 135;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 99;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -127,7 +127,7 @@ void MX_TIM3_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 10;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
@@ -866,6 +866,9 @@ void HAL_TIM_PWM_MspDeInit(TIM_HandleTypeDef* tim_pwmHandle)
 * @brief   新气泵PWM
   * @param duty 占空比0~100
   * @note  推介频率40k 
+  *      duty 35% -》 Pair=320kPa
+  *       duty 30% -》 Pair=300kPa
+  *      duty 25% -》 Pair=280kPa
   * @retval  
   *****************************************************************************/
  void app_air_pum_pwm_set(unsigned char  duty)
@@ -874,11 +877,12 @@ void HAL_TIM_PWM_MspDeInit(TIM_HandleTypeDef* tim_pwmHandle)
   {    
 		unsigned int timeUs;
 		unsigned short int period;
-		//check freq,timer3 4M clock freq ;  
-		period=100;//(4000000/40000);//40kHz  
+		//check freq,timer3 2M clock freq ;  
+		period=50;//(2000000/40000);//40kHz  
 		__HAL_TIM_SetAutoreload(&htim3,period-1);
-		//duty 1%  100%; 0% close 	
-		timeUs =duty*period;//*4;//period*duty/100;	//duty = 12.5%;    
+		//duty 1%  100%; 0% close 
+    if(duty<18)		timeUs=11;
+    else 	timeUs =duty>>1;///2;//*4;//period*duty/100;	//duty = 12.5%;    
     __HAL_TIM_SetCompare(&htim3,TIM_CHANNEL_2,timeUs-1);  
   }
   else

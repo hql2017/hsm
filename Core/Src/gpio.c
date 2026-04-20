@@ -183,8 +183,7 @@ void app_air_pump_switch( FunctionalState flag)
   if(flag==DISABLE)
   {  
     HAL_TIM_PWM_Stop(&htim3,TIM_CHANNEL_2);
-    HAL_GPIO_WritePin(H_AIR_PUMP_PWR_EN_out_GPIO_Port,H_AIR_PUMP_PWR_EN_out_Pin,GPIO_PIN_SET);//电源    
-      
+    HAL_GPIO_WritePin(H_AIR_PUMP_PWR_EN_out_GPIO_Port,H_AIR_PUMP_PWR_EN_out_Pin,GPIO_PIN_SET);//电源   
   } 
   else
   {
@@ -522,7 +521,7 @@ void app_air_pump_switch( FunctionalState flag)
   {//环境温度报警，高报警，低正常
     //high alert status (  >Hth -or- <Lth)
    // if(HAL_GPIO_ReadPin(envir_TEMPRATURE_ALERT_in_GPIO_Port,envir_TEMPRATURE_ALERT_in_Pin)==GPIO_PIN_RESET)
-    {
+    {      
       err=SUCCESS;
     }    
   }
@@ -542,7 +541,6 @@ void app_air_pump_switch( FunctionalState flag)
   }  
   else if(IoNum==In7_water_ready_ok)//治疗水出口状态ok
   {//低ok有效
-		
     if(HAL_GPIO_ReadPin(treatment_water_ready_ok_in_GPIO_Port,treatment_water_ready_ok_in_Pin)==GPIO_PIN_RESET)
     {
       err=SUCCESS;

@@ -130,7 +130,8 @@ int main(void)
   MX_USART1_UART_Init();
   MX_SPI4_Init();
   MX_SPI6_Init();
-  MX_ADC1_Init();  
+  MX_ADC1_Init();
+  //MX_IWDG1_Init();
   MX_ADC2_Init();
   MX_TIM8_Init();
   MX_TIM17_Init();

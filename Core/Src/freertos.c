@@ -751,15 +751,14 @@ void auxTask02(void *argument)
 			HAL_GPIO_TogglePin(MCU_SYS_health_LED_GPIO_Port,MCU_SYS_health_LED_Pin); 
       app_sram_status_monitor();  
       //DEBUG_PRINTF("air pre=%.1f water_pressure=%.1f \r\n",sEnvParam.air_pump_pressure,sEnvParam.treatment_water_pressure);//
-     // DEBUG_PRINTF("cool water_depth=%.1f  \r\n", sEnvParam.cool_water_depth);     
+     //DEBUG_PRINTF("air_press=%.1f  \r\n",HAL_GPIO_ReadPin(Hyperbaria_OFF_Signal_GPIO_Port,Hyperbaria_OFF_Signal_Pin));     
 		}	    
 		/**********************RGB****************************/		
 		osStatus_t rgb_s=osMessageQueueGet(rgbQueue02Handle,&rgbRun,0,5);	 
     switch(rgbRun)
     {
       case 0:
-        rgb_color_all(0);
-        
+        rgb_color_all(0);        
       break;
       case RGB_G_STANDBY:      
         {
@@ -2092,8 +2091,7 @@ void laserProhotTask09(void *argument)
           {
             //pulse_width_offeset=(28+(unsigned short int)(0.12*(300-p2000w_ctr_param.outVoltageSet)))>>1;   
             pulse_width_offeset=(38-(unsigned short int)(0.06*p2000w_ctr_param.outVoltageSet));  
-          }   
-             
+          }  
           u_p2000w_tx_msg.msg.code=P2000W_CODE_PULSE_WIDTH;
           //u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet;  
           //电源效率和灯管特性在不同频率下有差异，导致脉冲峰值功率变化能量波动，做脉宽补偿（0~12us.1~60Hz）       
@@ -2611,7 +2609,7 @@ void app_sys_genaration_status_manage(void)
 	else 
   {   
     osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO5_BIT);
-  }//气泵气压过高信号报警
+  }//气泵气压过高信号报警,低报警
 	if(app_get_io_status(In6_Hyperbaria_OFF_Signal)==SUCCESS)
 	{ 
     osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO6_BIT);  
@@ -2623,21 +2621,22 @@ void app_sys_genaration_status_manage(void)
   //治疗水瓶液位 低有效
   if(HAL_GPIO_ReadPin(TREATMENT_WATER_DEPTH_in_GPIO_Port,TREATMENT_WATER_DEPTH_in_Pin)==GPIO_PIN_RESET)
   {
-    sEnvParam.treatment_water_depth=1;    
+    sEnvParam.treatment_water_depth=1;   
+    osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT ); 
   }
-  else sEnvParam.treatment_water_depth=0;
+  else
+  {
+    sEnvParam.treatment_water_depth=0;
+    osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT );
+  } 
   //治疗水OK就绪信号 
 	if(app_get_io_status(In7_water_ready_ok)==SUCCESS&&sEnvParam.treatment_water_depth!=0)
 	{  
-    if(HAL_GPIO_ReadPin(High_water_pressure_OFF_Signal_GPIO_Port,High_water_pressure_OFF_Signal_Pin)==GPIO_PIN_RESET)//治疗水压报警,低报警
-    {
-      osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO7_BIT|EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT);
-    }
-    else osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO7_BIT|EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT);
+     osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO7_BIT);
 	}
 	else 
-  {  
-    osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO7_BIT|EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT);
+  {      
+    osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO7_BIT);
   }
   //水循环就绪信号
 	if(app_get_io_status(In8_water_circle_ok)==SUCCESS&&sEnvParam.cool_water_depth>u_sys_param.sys_config_param.cool_water_depth_low)
@@ -2749,7 +2748,7 @@ void app_set_default_sys_config_param(void)
   u_sys_param. sys_config_param.laser_use_timeS=0;
   u_sys_param. sys_config_param.RDB_use_timeS=0; 
   u_sys_param. sys_config_param.laser_pulse_width_us=140;
-  u_sys_param. sys_config_param.treatment_water_depth_high=15;//15.1pf
+  u_sys_param. sys_config_param.treatment_water_depth_high=150;//15.1pf
   u_sys_param. sys_config_param.treatment_water_depth_low=1;//1.0pF
   u_sys_param. sys_config_param.cool_water_depth_high=69;//7.0pf
   u_sys_param. sys_config_param.cool_water_depth_low=62;//6.1pF
@@ -2874,36 +2873,47 @@ void app_set_default_sys_config_param(void)
  void app_air_pump_manage(unsigned char air_level)
  {
 		uint32_t eventFlag= osEventFlagsGet(auxStatusEvent01Handle);
+    unsigned char duty_cali=0,duty;
 		float air_pressure=MID_AIR_PUMP_PRESSURE+sEnvParam.air_gzp_enviroment_pressure_kpa;
 		if(air_level==1)
-    {
-      app_air_pum_pwm_set(15);
-      //air_pressure = u_sys_param.sys_config_param.air_low_pressure+sEnvParam.air_gzp_enviroment_pressure_kpa;
-      air_pressure = MIN_AIR_PUMP_PRESSURE+sEnvParam.air_gzp_enviroment_pressure_kpa;
+    {      
+      duty=20;
+      air_pressure = u_sys_param.sys_config_param.air_low_pressure+sEnvParam.air_gzp_enviroment_pressure_kpa;
+      //air_pressure = MIN_AIR_PUMP_PRESSURE+sEnvParam.air_gzp_enviroment_pressure_kpa;
     }
     else if(air_level==3)
-    {
-      app_air_pum_pwm_set(35);
-      //air_pressure   =  u_sys_param.sys_config_param.air_mid_pressure+sEnvParam.air_gzp_enviroment_pressure_kpa;
-      air_pressure = MAX_AIR_PUMP_PRESSURE+sEnvParam.air_gzp_enviroment_pressure_kpa;			
+    {     
+      duty=30;
+      air_pressure   =  u_sys_param.sys_config_param.air_mid_pressure+sEnvParam.air_gzp_enviroment_pressure_kpa;
+      //air_pressure = MAX_AIR_PUMP_PRESSURE+sEnvParam.air_gzp_enviroment_pressure_kpa;			
     }
     else if(air_level==2)
-    {
-      app_air_pum_pwm_set(25);
-      //air_pressure = u_sys_param.sys_config_param.air_high_pressure+sEnvParam.air_gzp_enviroment_pressure_kpa;
-      air_pressure=MID_AIR_PUMP_PRESSURE+sEnvParam.air_gzp_enviroment_pressure_kpa;
+    {      
+      duty=25;
+      air_pressure = u_sys_param.sys_config_param.air_high_pressure+sEnvParam.air_gzp_enviroment_pressure_kpa;
+      //air_pressure=MID_AIR_PUMP_PRESSURE+sEnvParam.air_gzp_enviroment_pressure_kpa;
     }    
-    if(air_level==0||((eventFlag&EVENTS_AUX_STATUS_IO6_BIT)!= EVENTS_AUX_STATUS_IO6_BIT)|| sEnvParam.air_pump_pressure>air_pressure+3 )//
-    {	
-      app_air_pump_switch(DISABLE);          	     
+    
+    if(air_level!=0&&((eventFlag&EVENTS_AUX_STATUS_IO6_BIT)== EVENTS_AUX_STATUS_IO6_BIT))//
+    {
+      if(sEnvParam.air_gzp_enviroment_pressure_kpa>100.0)
+      {
+        duty_cali=(sEnvParam.air_pump_pressure-95.0)*100/air_pressure;
+        duty_cali%=5;//校准值不超过5%  
+        app_air_pum_pwm_set(duty-duty_cali);     
+      }
+      else  if(sEnvParam.air_gzp_enviroment_pressure_kpa<90.0)
+      {
+        duty_cali=(95.0-sEnvParam.air_pump_pressure)*100/air_pressure;
+        duty_cali%=5;//校准值不超过5%
+        app_air_pum_pwm_set(duty+duty_cali);
+      }
+      else 
+      {
+        duty_cali=0;
+        app_air_pum_pwm_set(duty);
+      }           
     }
-		else 
-		{
-			if(sEnvParam.air_pump_pressure+5 < air_pressure)
-			{//丢弃气瓶，用时再开
-      // app_air_pump_switch(ENABLE);
-      }     
-		}      
     #if 1
     //本机取消气瓶
     sGenSta.laser_param_B23_air_pump_pressure_status=1;
