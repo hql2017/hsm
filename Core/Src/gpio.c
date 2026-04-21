@@ -541,10 +541,19 @@ void app_air_pump_switch( FunctionalState flag)
   }  
   else if(IoNum==In7_water_ready_ok)//治疗水出口状态ok
   {//低ok有效
+    
+    #if 1
+    //改为检测水压,就绪    
+    if(sEnvParam.treatment_water_pressure>MIN_TREATMENT_WATER_PRESSURE+sEnvParam.enviroment_temprature)
+    {
+      err=SUCCESS;
+    }
+    #else 
     if(HAL_GPIO_ReadPin(treatment_water_ready_ok_in_GPIO_Port,treatment_water_ready_ok_in_Pin)==GPIO_PIN_RESET)
     {
       err=SUCCESS;
-    }    
+    }
+    #endif    
   }
 	 else if(IoNum==In8_water_circle_ok)//循环水状态
   {//低ok有效

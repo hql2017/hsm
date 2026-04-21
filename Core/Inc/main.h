@@ -208,6 +208,10 @@ void Error_Handler(void);
 #define MID_AIR_PUMP_PRESSURE  170.0f//260.00f//最佳气压
 #define MAX_AIR_PUMP_PRESSURE  190.0f//280.00f
 
+//water pump 治疗水压间接检测kPa,相对值
+#define MIN_TREATMENT_WATER_PRESSURE  2.0f//100f
+#define MAX_TREATMENT_WATER_PRESSURE  45.0f//140kPaf
+
 //300.00f
 #define ERR_T_FLOAT_VALUE      1000///温度浮点数错误值
 #define ERR_T_SHORT_INT_VALUE  160///温度整型错误值
@@ -240,7 +244,7 @@ void Error_Handler(void);
 #define L980_USED  
 #endif
 
-#ifdef DEBUG_MSG_UART 
+#ifndef DEBUG_MSG_UART 
 #define DEBUG_MSG_UART  /*use printf*/
 #define DEBUG_PRINTF(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #else

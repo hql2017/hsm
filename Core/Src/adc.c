@@ -630,9 +630,9 @@ void app_get_adc_value(unsigned char adChannel,float *vBuff)
     //DEBUG_PRINTF("air_pressure=%.2f v=%dmV ad=%x\r\n", *vBuff,temp,advalue[AD1_AIR_PRESSER_INDEX]);
   }  
   else if(adChannel==AD1_WATER_PRESSER_INDEX)
-  {//水压kPa   
+  {//水压kPa ,  
     temp=((((advalue[AD1_WATER_PRESSER_INDEX]-D_A_MIN)*AD_VREF_VOLTAGE)>>16) +22);
-    *vBuff=temp*0.1654131+P_A_MIN;//0.150723+P_A_MIN;//(441/3000);//air pressure  ,dio
+    *vBuff=temp*0.0827066+P_A_MIN*0.5;//temp*0.1654131+P_A_MIN;////air pressure/2  ,dio
     //DEBUG_PRINTF("water_pressure=%.2f v=%dmV ad=%x\r\n", *vBuff,temp,advalue[AD1_WATER_PRESSER_INDEX]);
   }  
 }

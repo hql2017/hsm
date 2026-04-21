@@ -703,6 +703,7 @@ void StartDefaultTask(void *argument)
     { 
       HAL_Delay(50);
       timeout+=50; 
+      app_get_adc_value(AD1_WATER_PRESSER_INDEX,&sEnvParam.treatment_water_pressure);
       if(timeout>5000)
       {
         DEBUG_PRINTF("treatment water load fail \r\n");          
@@ -751,7 +752,7 @@ void auxTask02(void *argument)
 			HAL_GPIO_TogglePin(MCU_SYS_health_LED_GPIO_Port,MCU_SYS_health_LED_Pin); 
       app_sram_status_monitor();  
       //DEBUG_PRINTF("air pre=%.1f water_pressure=%.1f \r\n",sEnvParam.air_pump_pressure,sEnvParam.treatment_water_pressure);//
-     //DEBUG_PRINTF("air_press=%.1f  \r\n",HAL_GPIO_ReadPin(Hyperbaria_OFF_Signal_GPIO_Port,Hyperbaria_OFF_Signal_Pin));     
+      //DEBUG_PRINTF("air_press=%.1f  \r\n",HAL_GPIO_ReadPin(Hyperbaria_OFF_Signal_GPIO_Port,Hyperbaria_OFF_Signal_Pin));     
 		}	    
 		/**********************RGB****************************/		
 		osStatus_t rgb_s=osMessageQueueGet(rgbQueue02Handle,&rgbRun,0,5);	 
@@ -860,7 +861,7 @@ void keyScanTask03(void *argument)
       if(app_remote_key_sta()==ERROR)
       {
         if(sGenSta.laser_param_B7_ykls_status!=0) DEBUG_PRINTF("JT remote locked\r\n");
-        sGenSta.laser_param_B7_ykls_status=0;
+        sGenSta.laser_param_B7_ykls_status = 0;
         if(history_key_message!=key_jt_release)
         {           
           if(osMessageQueuePut(keyJTMessageQueue01Handle,&history_key_message,0,0)==osOK)  
@@ -879,8 +880,8 @@ void keyScanTask03(void *argument)
           {  
             if(osMessageQueuePut(keyJTMessageQueue01Handle,&key_message,0,0)==osOK)  
             {            
-            // DEBUG_PRINTF("JT key press %d\r\n",key_message);
-              history_key_message=key_message;
+              //DEBUG_PRINTF("JT key press %d\r\n",key_message);
+              history_key_message = key_message;
               key_message =	NO_KEY_MESSAGE;                									
             }  
           }
@@ -944,7 +945,7 @@ void laserWorkTask04(void *argument)
       if(laser_close_sem==osOK&&sGenSta.laser_run_B0_pro_hot_status)
       {     
         osTimerStop(laserWorkTimer01Handle);
-        sGenSta.laser_run_B5_timer_status=0;       
+        sGenSta.laser_run_B5_timer_status=0;               
         tmc2226_stop();  
         app_deflate_air_solenoid(DISABLE);       
         if(p2000w_ctr_param.p2000wHeart==0) {
@@ -1272,7 +1273,8 @@ void laserWorkTask04(void *argument)
       if(laser_close_sem==osOK&&sGenSta.laser_run_B0_pro_hot_status!=0)
       { 
         sGenSta.laser_run_B5_timer_status=0;
-        osTimerStop(laserWorkTimer01Handle);         	        
+        osTimerStop(laserWorkTimer01Handle); 
+               	        
         tmc2226_stop();  
         app_deflate_air_solenoid(DISABLE);
         if((u_s_l980.sta.staByte&L980_STA_HEART_BIT0)!=L980_STA_HEART_BIT0)
@@ -1483,7 +1485,9 @@ void laserWorkTask04(void *argument)
         {    
           if(pLaserConfig->proCali==0&&pLaserConfig->treatmentWaterLevel!=0)
           {   
+            
             tmc2226_stop();
+            
           }        
           if((u_s_l980.sta.staByte&L980_STA_PULSEOUT_BIT2)==L980_STA_PULSEOUT_BIT2)
           {
@@ -2380,7 +2384,7 @@ void p2000wReceiveTask12(void *argument)
     osStatus_t status  = osSemaphoreAcquire(p2000wHeartBinarySem07Handle,10);
     if(status==osOK)
     {  
-      osStatus_t p_m= osMessageQueueGet(p2000wTxMessageQueue04Handle,pTxMessageBuff,0,0);
+      osStatus_t p_m = osMessageQueueGet(p2000wTxMessageQueue04Handle,pTxMessageBuff,0,0);
       if(p_m==osOK)   {
         U_P2000W_TX_MSG *p_u_msg;
         p_u_msg = (U_P2000W_TX_MSG*)pTxMessageBuff;        
@@ -2653,12 +2657,13 @@ void app_sys_genaration_status_manage(void)
     u_sys_param.sys_config_param.tec_switch=0;
     osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO8_BIT);
   }
-  if(sEnvParam.NTC_temprature>MAX_TMC2226_NTC_TEMPRATURE)//过热
+  if(sEnvParam.NTC_temprature>MAX_TMC2226_NTC_TEMPRATURE)//||sEnvParam.treatment_water_pressure>MAX_TREATMENT_WATER_PRESSURE+sEnvParam.enviroment_temprature)//过热或者堵转
   {
     osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_9_NTC_BIT);  
   }
   else
   {
+    
     osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_9_NTC_BIT);
   }
   if(sEnvParam.iBus<MAX_IBUS_MA)//<10A
@@ -3046,11 +3051,10 @@ void app_laser_preapare_semo(void)
   else 
   {
     if(local_tmc_flag!=0)
-    { 
-     
+    {
       osTimerStop(tmcMaxRunTimer03Handle);     
       tmc2226_start(!TMC_WATER_OUT_DIR_VALUE,3,CONTINUOUS_STEPS_COUNT); 
-      osDelay(120);
+      osDelay(300);
       tmc2226_stop(); 
       osTimerDelete(tmcMaxRunTimer03Handle);      
       local_tmc_flag = 0;      
