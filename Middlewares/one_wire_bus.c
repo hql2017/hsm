@@ -176,7 +176,7 @@ void owb_dq_edge_callback(void)
 	 switch (owb_frame.busIdleFlag) {
 		 case 1: // ACK阶段
 			 if (owb_frame.busTime >= OWB_FRAME_RESET_TIM) {
-				 if (OWB_DQ_READ == GPIO_PIN_RESET) {
+				 if (OWB_DQ_READ == GPIO_PIN_SET) {
 					 owb_frame.busTime = 0;
 					 owb_frame.busIdleFlag = 3;
 					 txrxData = 0;
@@ -193,7 +193,7 @@ void owb_dq_edge_callback(void)
 		 case 3: // 接收数据阶段
 			 if (owb_frame.busTime >= OWB_FRAME_READ_TIM) { // 最少15us后读取
 				 owb_frame.busTime = 0;
-				 if (OWB_DQ_READ == GPIO_PIN_SET) {
+				 if (OWB_DQ_READ == GPIO_PIN_RESET) {
 					 txrxData |= (0x01 << txrxBit);
 				 }
 				 txrxBit += 1;

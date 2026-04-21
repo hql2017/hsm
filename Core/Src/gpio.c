@@ -137,7 +137,7 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : FOOT_SWITCH_IN_Pin */
   GPIO_InitStruct.Pin = FOOT_SWITCH_IN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(FOOT_SWITCH_IN_GPIO_Port, &GPIO_InitStruct);
 
@@ -183,14 +183,13 @@ void app_air_pump_switch( FunctionalState flag)
   if(flag==DISABLE)
   {  
     HAL_TIM_PWM_Stop(&htim3,TIM_CHANNEL_2);
-    HAL_GPIO_WritePin(H_AIR_PUMP_PWR_EN_out_GPIO_Port,H_AIR_PUMP_PWR_EN_out_Pin,GPIO_PIN_SET);//电源   
+    HAL_GPIO_WritePin(H_AIR_PUMP_PWR_EN_out_GPIO_Port,H_AIR_PUMP_PWR_EN_out_Pin,GPIO_PIN_RESET);//电源   
   } 
   else
   {
     HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_2);
     HAL_GPIO_WritePin(H_AIR_PUMP_PWR_EN_out_GPIO_Port,H_AIR_PUMP_PWR_EN_out_Pin,GPIO_PIN_RESET);//电源
-  } 
- 
+  }  
 }
   /************************************************************************//**
   * @brief  循环水泵开关（冷却液）
@@ -338,7 +337,7 @@ void app_air_pump_switch( FunctionalState flag)
    sEnvParam.JT_ID=owb_buff[1]|(owb_buff[2]<<8)|(owb_buff[3]<<16)|(owb_buff[4]<<24);
    if(owb_buff[0]=='[' && owb_buff[7]==']'&&sEnvParam.JT_ID==u_sys_param.sys_config_param.jtId)
     { 
-      //DEBUG_PRINTF("jt own\r\n");      
+     // DEBUG_PRINTF("jt own\r\n");      
       sEnvParam.JT_bat=owb_buff[6]; 
       timeout[1]=0;
       if(owb_buff[5]==KEY_LONG_PRESS)

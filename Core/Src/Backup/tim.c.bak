@@ -111,7 +111,7 @@ void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 135;
+  htim3.Init.Prescaler = 53;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 99;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -864,11 +864,12 @@ void HAL_TIM_PWM_MspDeInit(TIM_HandleTypeDef* tim_pwmHandle)
  }
   /************************************************************************//**
 * @brief   新气泵PWM
-  * @param duty 占空比0~100
-  * @note  推介频率40k 
-  *      duty 35% -》 Pair=320kPa
-  *       duty 30% -》 Pair=300kPa
-  *      duty 25% -》 Pair=280kPa
+  * @param duty 占空比20~35(3.3V 控制电压)
+  * @note  推介频率40k ,环境气压95kPa,相对气压 P(180~200kPa)
+  *      duty 35% -》 Pair=320kPa  ；P=Pair-95;
+  *      duty 30% -》 Pair=300kPa  ；P=Pair-95;P=200kPa
+  *      duty 25% -》 Pair=280kPa ；  P=Pair-95;P=180kP
+  *      duty 20% -》 Pair=260kPa；   P=Pair-95;
   * @retval  
   *****************************************************************************/
  void app_air_pum_pwm_set(unsigned char  duty)
@@ -877,12 +878,13 @@ void HAL_TIM_PWM_MspDeInit(TIM_HandleTypeDef* tim_pwmHandle)
   {    
 		unsigned int timeUs;
 		unsigned short int period;
-		//check freq,timer3 2M clock freq ;  
-		period=50;//(2000000/40000);//40kHz  
+		//check freq,timer3 5M clock  ;  
+		period=125;//(5000000/40000);//40kHz  
 		__HAL_TIM_SetAutoreload(&htim3,period-1);
 		//duty 1%  100%; 0% close 
-    if(duty<18)		timeUs=11;
-    else 	timeUs =duty>>1;///2;//*4;//period*duty/100;	//duty = 12.5%;    
+    if(duty<20)		timeUs=25;
+    if(duty>35)	timeUs=43;//MAX
+    else 	timeUs =(duty*5)>>2;///*1.25;//;	    
     __HAL_TIM_SetCompare(&htim3,TIM_CHANNEL_2,timeUs-1);  
   }
   else

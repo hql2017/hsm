@@ -131,7 +131,7 @@ int main(void)
   MX_SPI4_Init();
   MX_SPI6_Init();
   MX_ADC1_Init();
-  MX_IWDG1_Init();
+  //MX_IWDG1_Init();
   MX_ADC2_Init();
   MX_TIM8_Init();
   MX_TIM17_Init();
@@ -316,7 +316,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   }
   /* USER CODE BEGIN Callback 1 */
   if(htim->Instance == TIM17) {
-     owb_tim_callback(30);     
+     owb_tim_callback(30);
   }	
   if(htim->Instance == TIM23)
   {
