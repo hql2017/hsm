@@ -343,7 +343,7 @@ void app_p2000w_status_handle( P_2000W_STATUS *pSta );
 #ifdef ONE_WIRE_BUS_SLAVE
 unsigned int  app_owb_key_scan(unsigned short int timeMs);
 #endif
-U_CAN_TX_MSG u_CAN_tx_msg;
+
 //1064能量值对应电压表0~200mJ
 
 static unsigned short int energe_140us_voltage[41]={200,210,220,230,240,245,278,
@@ -929,6 +929,7 @@ void laserWorkTask04(void *argument)
   osStatus_t p_mtxs;
   osStatus_t can_tx_sta; 
   unsigned char test_half_v=0;
+  U_CAN_TX_MSG u_CAN_tx_t_msg;
   for(;;)
   {  
     event=osEventFlagsWait(laserEvent02Handle,EVENTS_LASER_PREPARE_OK_ALL_BITS_MASK,osFlagsNoClear,portMAX_DELAY);
@@ -1286,16 +1287,16 @@ void laserWorkTask04(void *argument)
         {
           if((u_s_l980.sta.staByte&L980_STA_PULSEOUT_BIT2)==L980_STA_PULSEOUT_BIT2) 
           {
-            u_CAN_tx_msg.msg.typeCode=L980_REG_JT_CTR_STOP;
-            u_CAN_tx_msg.msg.dataLen=2;
-            u_CAN_tx_msg.msg.buff[0]=0;
-            u_CAN_tx_msg.msg.buff[1]=0;            
-            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+            u_CAN_tx_t_msg.msg.typeCode=L980_REG_JT_CTR_STOP|L980_REG_WRITE_MASK;
+            u_CAN_tx_t_msg.msg.dataLen=2;
+            u_CAN_tx_t_msg.msg.buff[0]=0;
+            u_CAN_tx_t_msg.msg.buff[1]=0;            
+            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_t_msg.data,0,0);
             if(can_tx_sta!=osOK)   
             {
               DEBUG_PRINTF("L980 stop pulse out fail ,resend once!\r\n");
               osDelay(L980_CAN_MINI_TIME_MS);
-              osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+              osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_t_msg.data,0,0);
             }
             else DEBUG_PRINTF("L980 stop pulse out\r\n");   
           }          
@@ -1318,18 +1319,18 @@ void laserWorkTask04(void *argument)
           }
           if((u_s_l980.sta.staByte&L980_STA_PROHOT_BIT1)==L980_STA_PROHOT_BIT1)           
           {
-            u_CAN_tx_msg.msg.typeCode=L980_REG_CTR_PRO_HOT;
-            u_CAN_tx_msg.msg.dataLen=4;
-            u_CAN_tx_msg.msg.buff[0]=0;
-            u_CAN_tx_msg.msg.buff[1]=0; 
-            u_CAN_tx_msg.msg.buff[2]=0;
-            u_CAN_tx_msg.msg.buff[3]=0;            
-            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+            u_CAN_tx_t_msg.msg.typeCode=L980_REG_CTR_PRO_HOT|L980_REG_WRITE_MASK;
+            u_CAN_tx_t_msg.msg.dataLen=4;
+            u_CAN_tx_t_msg.msg.buff[0]=0;
+            u_CAN_tx_t_msg.msg.buff[1]=0; 
+            u_CAN_tx_t_msg.msg.buff[2]=0;
+            u_CAN_tx_t_msg.msg.buff[3]=0;            
+            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_t_msg.data,0,0);
             if(can_tx_sta!=osOK)   
             {
               DEBUG_PRINTF("L980 exit prohot fail ,resend once!\r\n");
               osDelay(L980_CAN_MINI_TIME_MS);
-              osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+              osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_t_msg.data,0,0);
             }
             else DEBUG_PRINTF("L980 exit prohot\r\n");             
           }
@@ -1383,22 +1384,21 @@ void laserWorkTask04(void *argument)
         {  
           if((u_s_l980.sta.staByte&L980_STA_PULSEOUT_BIT2)!=L980_STA_PULSEOUT_BIT2) 
           {
-            u_CAN_tx_msg.msg.typeCode=L980_REG_JT_CTR_STOP;
-            u_CAN_tx_msg.msg.dataLen=2;
-            u_CAN_tx_msg.msg.buff[0]=1;
-            u_CAN_tx_msg.msg.buff[1]=0;            
-            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+            u_CAN_tx_t_msg.msg.typeCode=L980_REG_JT_CTR_STOP|L980_REG_WRITE_MASK;
+            u_CAN_tx_t_msg.msg.dataLen=2;
+            u_CAN_tx_t_msg.msg.buff[0]=1;
+            u_CAN_tx_t_msg.msg.buff[1]=0;            
+            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_t_msg.data,0,0);
             if(can_tx_sta!=osOK)   
             {
               DEBUG_PRINTF("L980 start pulse out fail ,resend once!\r\n");
               osDelay(L980_CAN_MINI_TIME_MS);
-              osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+              osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_t_msg.data,0,0);
             }
             else DEBUG_PRINTF("L980 start pulse out\r\n");             
           }    
           timeout=0;  
-          while((u_s_l980.sta.staByte&L980_STA_PULSEOUT_BIT2)!=L980_STA_PULSEOUT_BIT2)
-          {
+          do{
             osDelay(L980_CAN_MINI_TIME_MS);
             timeout+=L980_CAN_MINI_TIME_MS;
             if(timeout>L980_MAX_PROHOT_WAIT_TIME)
@@ -1406,7 +1406,7 @@ void laserWorkTask04(void *argument)
               DEBUG_PRINTF("l980 pulse out  fail,exit prohot\r\n"); 
               break;
             }          
-          }
+          } while((u_s_l980.sta.staByte&L980_STA_PULSEOUT_BIT2)!=L980_STA_PULSEOUT_BIT2);
           if((u_s_l980.sta.staByte&L980_STA_PULSEOUT_BIT2)==L980_STA_PULSEOUT_BIT2)
           {            
             if(laser_ctr_param.timerEnableFlag!=0&&laser_ctr_param.timerCtr!=0) 
@@ -1491,29 +1491,28 @@ void laserWorkTask04(void *argument)
           }        
           if((u_s_l980.sta.staByte&L980_STA_PULSEOUT_BIT2)==L980_STA_PULSEOUT_BIT2)
           {
-            u_CAN_tx_msg.msg.typeCode=L980_REG_JT_CTR_STOP;
-            u_CAN_tx_msg.msg.dataLen=2;
-            u_CAN_tx_msg.msg.buff[0]=0;
-            u_CAN_tx_msg.msg.buff[1]=0;            
-            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+            u_CAN_tx_t_msg.msg.typeCode=L980_REG_JT_CTR_STOP|L980_REG_WRITE_MASK;
+            u_CAN_tx_t_msg.msg.dataLen=2;
+            u_CAN_tx_t_msg.msg.buff[0]=0;
+            u_CAN_tx_t_msg.msg.buff[1]=0;            
+            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_t_msg.data,0,0);
             if(can_tx_sta!=osOK)   
             {
               DEBUG_PRINTF("L980 stop pulse out fail ,resend once!\r\n");
               osDelay(L980_CAN_MINI_TIME_MS);
-              osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+              osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_t_msg.data,0,0);
             }
             else DEBUG_PRINTF("L980 stop pulse out\r\n");              
           }
           timeout=0;  
-          while((u_s_l980.sta.staByte&L980_STA_PULSEOUT_BIT2)==L980_STA_PULSEOUT_BIT2)
-          {
+          do{
             osDelay(L980_CAN_MINI_TIME_MS);
             timeout+=L980_CAN_MINI_TIME_MS;
             if(timeout>L980_CAN_FRAME_TIMEOUT)
             {
               break;
             }                      
-          }
+          }while((u_s_l980.sta.staByte&L980_STA_PULSEOUT_BIT2)==L980_STA_PULSEOUT_BIT2);
           if((u_s_l980.sta.staByte&L980_STA_PULSEOUT_BIT2)!=L980_STA_PULSEOUT_BIT2)
           {
             DEBUG_PRINTF("l980 stop pulse out ok\r\n"); 
@@ -1619,7 +1618,8 @@ void hmiAppTask06(void *argument)
   u_sys_param.sys_config_param.synchronousFlag=0; 
   uint32_t syncTimeOutS=0;
   unsigned char can_tx_Message[8],hmi_can_idle_flag=0;
-  osStatus_t m_status;   
+  osStatus_t m_status;
+  U_CAN_TX_MSG u_c_t_msg;   
   for(;;)
   {   
     while(u_sys_param.sys_config_param.synchronousFlag!=3)   
@@ -1657,7 +1657,8 @@ void hmiAppTask06(void *argument)
         }        
         else
         {
-          L980_appWriteReg(p_can_tx_msg->msg.typeCode,p_can_tx_msg->msg.dataLen,p_can_tx_msg->msg.buff);
+          if((p_can_tx_msg->msg.typeCode&L980_REG_WRITE_MASK))  L980_appWriteReg(p_can_tx_msg->msg.typeCode&L980_REG_MASK,p_can_tx_msg->msg.dataLen,p_can_tx_msg->msg.buff);
+          else L980_appReadReq(p_can_tx_msg->msg.typeCode&L980_REG_MASK,p_can_tx_msg->msg.dataLen);          
         } 
         #else 
         hmi_can_idle_flag=1;//busy
@@ -1697,16 +1698,16 @@ void hmiAppTask06(void *argument)
     if(l980_timer!=u_l980.set_param.timerSet)
     {     
       u_l980.set_param.timerSet=l980_timer;
-      u_CAN_tx_msg.msg.typeCode=L980_REG_COUNTDOWN_TIMERS;
-      u_CAN_tx_msg.msg.dataLen=2;
-      u_CAN_tx_msg.msg.buff[0]=u_l980.set_param.timerSet&0xFF;
-      u_CAN_tx_msg.msg.buff[1]=(u_l980.set_param.timerSet>>8)&0xFF;
-      osStatus_t can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+      u_c_t_msg.msg.typeCode=L980_REG_COUNTDOWN_TIMERS|L980_REG_WRITE_MASK;
+      u_c_t_msg.msg.dataLen=2;
+      u_c_t_msg.msg.buff[0]=u_l980.set_param.timerSet&0xFF;
+      u_c_t_msg.msg.buff[1]=(u_l980.set_param.timerSet>>8)&0xFF;
+      osStatus_t can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_c_t_msg.data,0,0);
       if(can_tx_sta!=osOK)   
       {
         DEBUG_PRINTF("l980 timerSet update fail ,resend once!\r\n");
         osDelay(L980_CAN_MINI_TIME_MS);
-        osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+        osMessageQueuePut(canTxQueue05Handle,u_c_t_msg.data,0,0);
       }
       else  DEBUG_PRINTF("l980 timerSet update \r\n");
       #endif
@@ -1735,6 +1736,7 @@ void canReceiveTask07(void *argument)
   unsigned short int  fd_canRxLen = 0;//hmi (initialized to avoid undefined behavior)
   unsigned  int l980_heart_timeout = 0,can_rec_timeout=0;
   osStatus_t m_status,can_tx_sta;
+  U_CAN_TX_MSG u_CA_t_msg;
   for(;;)
   {
     /*******************CAN RX-DATA********************/
@@ -1755,12 +1757,7 @@ void canReceiveTask07(void *argument)
         #ifdef L980_USED          
         CAN_receivePackageHandle(buff,rtuPackageType); 
         #endif
-        l980_heart_timeout=0; 
-        if((u_s_l980.sta.staByte&L980_STA_HEART_BIT0)!=L980_STA_HEART_BIT0) 
-        {
-          DEBUG_PRINTF("l980 connect success!\r\n");          
-				  u_s_l980.sta.staByte|=L980_STA_HEART_BIT0;	
-        }			
+        l980_heart_timeout=0;         
       }    
 			else //if(Identifier==CAN_BROADCAST_ID)//屏幕
       {
@@ -1802,16 +1799,16 @@ void canReceiveTask07(void *argument)
           {
             u_sys_param.sys_config_param.laser_led_light =laser_ctr_param.ledLightLevel;
             u_l980.set_param.auxLedBulbDutySet=laser_ctr_param.ledLightLevel;  //fresh
-            u_CAN_tx_msg.msg.typeCode=L980_REG_AUXILIARY_BULB;
-            u_CAN_tx_msg.msg.dataLen=2;
-            u_CAN_tx_msg.msg.buff[0]=u_l980.set_param.auxLedBulbDutySet;
-            u_CAN_tx_msg.msg.buff[1]=10; //固定10k           
-            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+            u_CA_t_msg.msg.typeCode=L980_REG_AUXILIARY_BULB|L980_REG_WRITE_MASK;
+            u_CA_t_msg.msg.dataLen=2;
+            u_CA_t_msg.msg.buff[0]=u_l980.set_param.auxLedBulbDutySet;
+            u_CA_t_msg.msg.buff[1]=10; //固定10k           
+            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CA_t_msg.data,0,0);
             if(can_tx_sta!=osOK)   
             {
               DEBUG_PRINTF("L980 set auxled fail ,resend once!\r\n");
               osDelay(L980_CAN_MINI_TIME_MS);
-              osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+              osMessageQueuePut(canTxQueue05Handle,u_CA_t_msg.data,0,0);
             }
             else DEBUG_PRINTF("L980  set auxled duty=%d\r\n",u_l980.set_param.auxLedBulbDutySet);  
             
@@ -1824,16 +1821,16 @@ void canReceiveTask07(void *argument)
           {
             u_sys_param.sys_config_param.laser_led_light=laser_ctr_param.ledLightLevel;
             u_l980.set_param.auxLedBulbDutySet=laser_ctr_param.ledLightLevel;  //fresh
-            u_CAN_tx_msg.msg.typeCode=L980_REG_AUXILIARY_BULB;
-            u_CAN_tx_msg.msg.dataLen=2;
-            u_CAN_tx_msg.msg.buff[0]=0;
-            u_CAN_tx_msg.msg.buff[1]=0;            
-            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+            u_CA_t_msg.msg.typeCode=L980_REG_AUXILIARY_BULB|L980_REG_WRITE_MASK;
+            u_CA_t_msg.msg.dataLen=2;
+            u_CA_t_msg.msg.buff[0]=0;
+            u_CA_t_msg.msg.buff[1]=0;            
+            can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CA_t_msg.data,0,0);
             if(can_tx_sta!=osOK)   
             {
               DEBUG_PRINTF("L980 off auxled fail ,resend once!\r\n");
               osDelay(L980_CAN_MINI_TIME_MS);
-              osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+              osMessageQueuePut(canTxQueue05Handle,u_CA_t_msg.data,0,0);
             }
             else DEBUG_PRINTF("L980 off auxled \r\n"); 
             app_auxiliary_bulb_pwm(0,DISABLE);           
@@ -1933,6 +1930,7 @@ void laserProhotTask09(void *argument)
   osStatus_t m_stat;
   osStatus_t p_mtxs;
   osStatus_t can_tx_sta;
+  U_CAN_TX_MSG u_CAN_tx_msg;
   for(;;) 
   {
 		osStatus_t sta = osSemaphoreAcquire(laserPrapareReqSem03Handle,portMAX_DELAY);
@@ -1970,7 +1968,7 @@ void laserProhotTask09(void *argument)
           if((u_s_l980.sta.staByte&L980_STA_PROHOT_BIT1)!=L980_STA_PROHOT_BIT1)   
           { 
             u_l980.set_param.positionSet=33000;     
-            u_CAN_tx_msg.msg.typeCode=L980_REG_MOTOR_POSITION;
+            u_CAN_tx_msg.msg.typeCode=L980_REG_MOTOR_POSITION|L980_REG_WRITE_MASK;
             u_CAN_tx_msg.msg.dataLen=4;
             u_CAN_tx_msg.msg.buff[0]=u_l980.set_param.positionSet&0xFF;
             u_CAN_tx_msg.msg.buff[1]=(u_l980.set_param.positionSet>>8)&0xFF;
@@ -1992,7 +1990,7 @@ void laserProhotTask09(void *argument)
             }             
             else dacValue = laser_ctr_param.laserEnerge*6+300;
 
-            u_CAN_tx_msg.msg.typeCode=L980_REG_CTR_PRO_HOT;
+            u_CAN_tx_msg.msg.typeCode=L980_REG_CTR_PRO_HOT|L980_REG_WRITE_MASK;
             u_CAN_tx_msg.msg.dataLen=4;
             u_CAN_tx_msg.msg.buff[0]=laser_ctr_param.laserEnerge&0xFF;
             u_CAN_tx_msg.msg.buff[1]=(laser_ctr_param.laserEnerge>>8)&0xFF;
@@ -3121,8 +3119,9 @@ unsigned short int app_hmi_package_check(unsigned char* pBuff,unsigned short int
                     if (crc_read == crc16Num(pBuff + i, pLen - 4))
                     {
                         HMI_Parse_Data(&pBuff[i], pLen);
-                        u_CAN_tx_msg.msg.typeCode=0;//busy
-                        osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+                        U_CAN_TX_MSG u_msg;
+                        u_msg.msg.typeCode=0;//busy
+                        osMessageQueuePut(canTxQueue05Handle,u_msg.data,0,0);
                         retLen = pLen + i;
                         i += pLen;
                     }
@@ -3263,6 +3262,7 @@ void app_circle_water_PTC_manage(float circleWaterTmprature,unsigned  int sysTim
   static unsigned int local_TimeMs;
   float compareTemp=0; 
   osStatus_t m_status,can_tx_sta;
+  U_CAN_TX_MSG u_pt_msg;
   uint8_t cmd[2]; 
   if(sysTimeMs<local_TimeMs)  local_TimeMs=sysTimeMs;
   if(sysTimeMs< local_TimeMs+500)  return;
@@ -3275,29 +3275,30 @@ void app_circle_water_PTC_manage(float circleWaterTmprature,unsigned  int sysTim
     if(u_s_l980.sta.tec_switch==0)
     {
       DEBUG_PRINTF("tec on \r\n");
-      u_CAN_tx_msg.msg.typeCode=L980_REG_LASER_TEMPRATURE;
-      u_CAN_tx_msg.msg.dataLen=2;
-      u_CAN_tx_msg.msg.buff[0]=u_sys_param.sys_config_param.cool_temprature_target&0xFF;
-      u_CAN_tx_msg.msg.buff[1]=(u_sys_param.sys_config_param.cool_temprature_target>>8)&0xFF;            
-      can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+
+      u_pt_msg.msg.typeCode=L980_REG_LASER_TEMPRATURE|L980_REG_WRITE_MASK;
+      u_pt_msg.msg.dataLen=2;
+      u_pt_msg.msg.buff[0]=u_sys_param.sys_config_param.cool_temprature_target&0xFF;
+      u_pt_msg.msg.buff[1]=(u_sys_param.sys_config_param.cool_temprature_target>>8)&0xFF;            
+      can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_pt_msg.data,0,0);
       if(can_tx_sta!=osOK)   
       {
         DEBUG_PRINTF("L980 set target temprature fail ,resend once!\r\n");
         osDelay(L980_CAN_MINI_TIME_MS);
-        osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+        osMessageQueuePut(canTxQueue05Handle,u_pt_msg.data,0,0);
       }
       else DEBUG_PRINTF("L980 set target temprature=%.1f!\r\n",u_sys_param.sys_config_param.cool_temprature_target*0.1);
       //tec en       
-      u_CAN_tx_msg.msg.typeCode=L980_REG_TEC_CTR;
-      u_CAN_tx_msg.msg.dataLen=2;
-      u_CAN_tx_msg.msg.buff[0]=1;
-      u_CAN_tx_msg.msg.buff[1]=0;            
-      can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+      u_pt_msg.msg.typeCode=L980_REG_TEC_CTR|L980_REG_WRITE_MASK;
+      u_pt_msg.msg.dataLen=2;
+      u_pt_msg.msg.buff[0]=1;
+      u_pt_msg.msg.buff[1]=0;            
+      can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_pt_msg.data,0,0);
       if(can_tx_sta!=osOK)   
       {
         DEBUG_PRINTF("L980 tec on fail ,resend once!\r\n");
         osDelay(L980_CAN_MINI_TIME_MS);
-        osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+        osMessageQueuePut(canTxQueue05Handle,u_pt_msg.data,0,0);
       }
       else DEBUG_PRINTF("L980 tec on\r\n");     
     }      
@@ -3307,16 +3308,16 @@ void app_circle_water_PTC_manage(float circleWaterTmprature,unsigned  int sysTim
     if(u_s_l980.sta.tec_switch!=0)
     {
       DEBUG_PRINTF("tec off \r\n");
-      u_CAN_tx_msg.msg.typeCode=L980_REG_TEC_CTR;
-      u_CAN_tx_msg.msg.dataLen=2;
-      u_CAN_tx_msg.msg.buff[0]=0;
-      u_CAN_tx_msg.msg.buff[1]=0;            
-      can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+      u_pt_msg.msg.typeCode=L980_REG_TEC_CTR|L980_REG_WRITE_MASK;
+      u_pt_msg.msg.dataLen=2;
+      u_pt_msg.msg.buff[0]=0;
+      u_pt_msg.msg.buff[1]=0;            
+      can_tx_sta = osMessageQueuePut(canTxQueue05Handle,u_pt_msg.data,0,0);
       if(can_tx_sta!=osOK)   
       {
         DEBUG_PRINTF("L980 tec off fail ,resend once!\r\n");
         osDelay(L980_CAN_MINI_TIME_MS);
-        osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
+        osMessageQueuePut(canTxQueue05Handle,u_pt_msg.data,0,0);
       }
       else DEBUG_PRINTF("L980 tec off\r\n");     
     }  
