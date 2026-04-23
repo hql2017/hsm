@@ -244,7 +244,7 @@ void Error_Handler(void);
 #define L980_USED  
 #endif
 
-#ifndef DEBUG_MSG_UART 
+#ifdef DEBUG_MSG_UART 
 #define DEBUG_MSG_UART  /*use printf*/
 #define DEBUG_PRINTF(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #else

@@ -98,7 +98,6 @@ static unsigned short int CAN_crc16Num(unsigned char *pData, int length)
     switch(reg)
     {   
       case L980_REG_HEART_STATUS:
-      DEBUG_PRINTF("sta \r\n"); 
         memcpy(u_s_l980.data,data,sizeof(L980_STATUS));         
         break;
       case L980_REG_PULSE_COUNT_AND_TIME:  
@@ -143,7 +142,7 @@ static unsigned short int CAN_crc16Num(unsigned char *pData, int length)
   switch(reg)
     {   
       case L980_REG_HEART_STATUS: 
-          //memcpy(u_s_l980.data,data,sizeof(L980_STATUS));  
+        //memcpy(u_s_l980.data,data,sizeof(L980_STATUS));  
         break;
         case L980_REG_CTR_PRO_HOT: 
         {
@@ -242,11 +241,10 @@ static unsigned short int CAN_crc16Num(unsigned char *pData, int length)
     }  
     if(functionCode == L980_REG_WRITE_MASK)
     {   
-      L980_appWriteAck(pPkt->laser980Reg,pPkt->data);       
+      L980_appWriteAck(pPkt->laser980Reg,pPkt->data);
     }  
     else 
-    { 
-      DEBUG_PRINTF("r=%02x\r\n",pPkt->laser980Reg);
+    {      
       L980_appReadAck(pPkt->laser980Reg,pPkt->data);
     }
  }
@@ -296,8 +294,7 @@ static unsigned short int CAN_crc16Num(unsigned char *pData, int length)
           if(len>128) return ;          
           crcValue=(canAppDataBuff[len-2]<<8)|canAppDataBuff[len-1];
          
-          if(crcValue!=CAN_crc16Num(canAppDataBuff,len-2)) return;  
-                
+          if(crcValue!=CAN_crc16Num(canAppDataBuff,len-2)) return;            
           functionCode=canAppDataBuff[0]&L980_REG_WRITE_MASK;
           pL980.laser980Reg=canAppDataBuff[0]&L980_REG_MASK;
           
@@ -329,7 +326,7 @@ static unsigned short int CAN_crc16Num(unsigned char *pData, int length)
  void L980_appReadReq(unsigned char reg,unsigned char len)
  {  
     unsigned char sendBuff[8];  
-    sendBuff[0]=reg; 
+    sendBuff[0]=reg&L980_REG_MASK; 
     sendBuff[1]=1; 
     sendBuff[2]=len;
     sendBuff[3]=(CAN_crc16Num(sendBuff,3)>>8)&0xFF;

@@ -183,7 +183,7 @@ void app_air_pump_switch( FunctionalState flag)
   if(flag==DISABLE)
   {  
     HAL_TIM_PWM_Stop(&htim3,TIM_CHANNEL_2);
-    HAL_GPIO_WritePin(H_AIR_PUMP_PWR_EN_out_GPIO_Port,H_AIR_PUMP_PWR_EN_out_Pin,GPIO_PIN_RESET);//电源   
+    HAL_GPIO_WritePin(H_AIR_PUMP_PWR_EN_out_GPIO_Port,H_AIR_PUMP_PWR_EN_out_Pin,GPIO_PIN_SET);//电源   
   } 
   else
   {
