@@ -511,7 +511,7 @@ void app_air_pump_switch( FunctionalState flag)
   else if(IoNum==In3_chocke_air_solenoid)
   {//低报警，高正常,
     //更换气泵，改变检测方式
-    if(HAL_GPIO_ReadPin(High_water_pressure_OFF_Signal_GPIO_Port,High_water_pressure_OFF_Signal_Pin)==GPIO_PIN_SET)
+    if(HAL_GPIO_ReadPin(Hyperbaria_OFF_Signal_GPIO_Port,Hyperbaria_OFF_Signal_Pin)==GPIO_PIN_SET)
     {
       err=SUCCESS;
     }      

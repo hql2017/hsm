@@ -69,6 +69,8 @@
 "hsm_iii_lite_v1.0\lwrb_ex.o"
 "hsm_iii_lite_v1.0\task_menu.o"
 "hsm_iii_lite_v1.0\user_can1.o"
+"hsm_iii_lite_v1.0\segger_rtt.o"
+"hsm_iii_lite_v1.0\segger_rtt_printf.o"
 --strict --scatter "hsm_III_lite_v1.0\hsm_III_lite_v1.sct"
 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers

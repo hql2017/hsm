@@ -186,7 +186,7 @@ void app_p2000W_pack_handle( unsigned  char *data,unsigned short int len )
 					p2000w_soft_version[i]=data[4+i];
 				}	
 				DEBUG_PRINTF("p2000w Version=0x%02x%02x%02x%02x%02x\r\n",p2000w_soft_version[0],p2000w_soft_version[1],\
-					p2000w_soft_version[2],p2000w_soft_version[3],p2000w_soft_version[4]);
+				p2000w_soft_version[2],p2000w_soft_version[3],p2000w_soft_version[4]);
 			}
 			else 
 			{					

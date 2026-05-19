@@ -1555,7 +1555,7 @@ void fastAuxTask05(void *argument)
 		app_get_adc_value(AD1_AIR_PRESSER_INDEX,&sEnvParam.air_pump_pressure);
 		app_air_pump_manage(laser_ctr_param.airPressureLevel);  
 		/***********aux genaration状态检查*******************/   
-    app_sys_genaration_status_manage();
+    
 		app_fresh_laser_status_param(); 
     /***********循环水液位检查*******************/ 
     app_get_adc_value(AD1_WATER_PRESSER_INDEX,&sEnvParam.treatment_water_pressure);	     
@@ -1563,14 +1563,7 @@ void fastAuxTask05(void *argument)
     osDelay(5);
     app_mcp61_package_check();
     sEnvParam.cool_water_depth= app_mcp61_c_value()*10;//real depth =0.1pf*10
-    if(sEnvParam.cool_water_depth<u_sys_param.sys_config_param.cool_water_depth_low||sEnvParam.cool_water_depth>u_sys_param.sys_config_param.cool_water_depth_high)
-    {
-      osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_16_COOL_WATER_BIT);
-    }
-    else 
-    {
-      osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_16_COOL_WATER_BIT);
-    }
+    
     osStatus_t cool_sta=osSemaphoreAcquire(coolWaterDepthBinarySem01Handle,5);
     if(cool_sta==osOK)
     {
@@ -1662,6 +1655,7 @@ void hmiAppTask06(void *argument)
       }
       else 
       {
+				app_sys_genaration_status_manage();
         sGenSta.genaration_io_status = osEventFlagsGet(auxStatusEvent01Handle);
         if(hmi_can_idle_flag==0)
         {  
@@ -1878,8 +1872,7 @@ void powerOffTask08(void *argument)
     uint8_t cmdL[4];
     cmdL[0]=1;      
     cmdL[1]=0;    
-    L980_appWriteReg(L980_REG_SYS_POWER_OFF,1,cmdL);
-  
+    L980_appWriteReg(L980_REG_SYS_POWER_OFF,1,cmdL);  
     app_hmi_report_status(&sGenSta);       
 		if(app_sys_param_save_data()==0)
 		{
@@ -1976,8 +1969,7 @@ void laserProhotTask09(void *argument)
               osDelay(L980_CAN_MINI_TIME_MS);
               osMessageQueuePut(canTxQueue05Handle,u_CAN_tx_msg.data,0,0);
             }
-            else  DEBUG_PRINTF("980 set position=%dμm",u_l980.set_param.positionSet); 
-          
+            else  DEBUG_PRINTF("980 set position=%dμm",u_l980.set_param.positionSet);           
             unsigned short int dacValue = (app_laser_980_energe_to_voltage(laser_ctr_param.laserEnerge));              
             if(laser_ctr_param.ctrTestMode)  
             {              
@@ -2057,7 +2049,6 @@ void laserProhotTask09(void *argument)
               osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0); 
             }
           } 
-              
         }       
         timeout = 0;
         do
@@ -2071,11 +2062,9 @@ void laserProhotTask09(void *argument)
         }while((p2000w_status.ctr_status&P2000W_STA_B1_PFC_OK)!=P2000W_STA_B1_PFC_OK );
         unsigned char  local_p2000w_err=p2000w_status.error_code; 
         if((local_p2000w_err&P2000W_ERROR_CODE_MASK)==0&&p2000w_ctr_param.p2000wHeart!=0&&(p2000w_status.ctr_status&P2000W_STA_B1_PFC_OK)==P2000W_STA_B1_PFC_OK )         
-        {   
-                
+        {     
           p2000w_ctr_param.outVoltageSet =energe_140us_voltage[laser_ctr_param.laserEnerge/5]; //app_laser_1064_energe_to_voltage(laser_ctr_param.laserEnerge);  
-              
-          p2000w_ctr_param.freqSet = laser_ctr_param.laserFreq; 
+           p2000w_ctr_param.freqSet = laser_ctr_param.laserFreq; 
           p2000w_ctr_param.pulseWidthSet = u_sys_param.sys_config_param.laser_pulse_width_us;          
           #if 1  
           unsigned short int pulse_width_offeset=0;
@@ -2135,10 +2124,8 @@ void laserProhotTask09(void *argument)
           }
           DEBUG_PRINTF("lasr_vol=%dv freq=%dHz pulseW=%dus",p2000w_ctr_param.outVoltageSet,p2000w_ctr_param.freqSet,p2000w_ctr_param.pulseWidthSet);
           #else   
-          
           osSemaphoreAcquire(p2000wHeartBinarySem07Handle,2*P2000W_FRAME_TIMEOUT);
-          app_p2000w_v_q_set(p2000w_ctr_param.outVoltageSet,p2000w_ctr_param.freqSet,p2000w_ctr_param.pulseWidthSet); 
-                        
+          app_p2000w_v_q_set(p2000w_ctr_param.outVoltageSet,p2000w_ctr_param.freqSet,p2000w_ctr_param.pulseWidthSet);
           #endif             
           osDelay(P2000W_FRAME_TIMEOUT);
           if((p2000w_status.ctr_status&P2000W_STA_B3_PRO_HOT_OK)!=P2000W_STA_B3_PRO_HOT_OK)
@@ -2250,7 +2237,7 @@ void laserProhotTask09(void *argument)
               DEBUG_PRINTF("1064 prohot fail : temprature high please wait 10 secends !power off\r\n");
             }
             else  DEBUG_PRINTF("1064 prohot fail: p2000w,error code=0x%02x! power off\r\n",p2000w_status.error_code);  
-          }           
+          } 
           p2000w_ctr_param.proHotCtr = 0;
           sGenSta.laser_run_B0_pro_hot_status = 0;   
           local_proHotCtr = 0;
@@ -2303,31 +2290,14 @@ void ge2117ManageTask10(void *argument)
       sEnvParam.eth_k2_temprature = u_s_l980.sta.realtemprature*0.1; 
     }
     else sEnvParam.eth_k2_temprature = temp_t_f;
-    if(sEnvParam.eth_k1_temprature>ERR_LOW_TEMPRATURE_LASER&&sEnvParam.eth_k1_temprature<ERR_HIGH_TEMPRATURE_LASER)
-    {   
-     //if(sEnvParam.eth_k1_temprature<u_sys_param.sys_config_param.cool_temprature_low*0.1||sEnvParam.eth_k1_temprature>u_sys_param.sys_config_param.cool_temprature_high*0.1)
-      if(sEnvParam.eth_k1_temprature<10.0||sEnvParam.eth_k1_temprature>35.0)
-      {        
-        osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_12_K1_TEMPRATURE_BIT);
-      }
-      else
-      {
-        osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_12_K1_TEMPRATURE_BIT);
-      }     
-    }  
-    else
-    {   
-      osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_12_K1_TEMPRATURE_BIT);
-    } 
+   
     if(sEnvParam.eth_k2_temprature>ERR_LOW_TEMPRATURE_LASER&&sEnvParam.eth_k2_temprature<ERR_HIGH_TEMPRATURE_LASER)
     {
-      app_circle_water_PTC_manage(sEnvParam.eth_k2_temprature,local_timeMs);//tec
-      osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_13_K2_TEMPRATURE_BIT);
+      app_circle_water_PTC_manage(sEnvParam.eth_k2_temprature,local_timeMs);//tec   
     }
     else 
     {
-      app_circle_water_PTC_manage(u_sys_param.sys_config_param.cool_temprature_target*0.1,local_timeMs);//stop
-      osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_13_K2_TEMPRATURE_BIT);
+      app_circle_water_PTC_manage(u_sys_param.sys_config_param.cool_temprature_target*0.1,local_timeMs);//stop      
     }    
   }
   /* USER CODE END ge2117ManageTask10 */
@@ -2414,7 +2384,7 @@ p2000wReceiveTask12(void *argument)
         heartTimeOut=0;
         if(p2000w_ctr_param.p2000wHeart==0) 
         {
-          DEBUG_PRINTF(" p2000W connect succcess!\r\n");
+          DEBUG_PRINTF("p2000W connect succcess!\r\n");
           p2000w_ctr_param.p2000wHeart =  1;
         }
         app_p2000w_status_handle(&p2000w_status);
@@ -2432,7 +2402,7 @@ p2000wReceiveTask12(void *argument)
       osStatus_t status2  = osSemaphoreAcquire(p2000wHeartBinarySem07Handle,P2000W_FRAME_DELAY_TIME*2);
       if(status2==osOK)
       {
-        osStatus_t p_m= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,1);
+        osStatus_t p_m = osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,1);
         if(p_m!=osOK)
         { //re connect        
           DEBUG_PRINTF("p2000w reconnect cmd tx fail resend once ! \r\n");  
@@ -2496,13 +2466,12 @@ void p2000wHeartCallback04(void *argument)
     time = 0;
     osSemaphoreRelease(hmiCanBusIdleSem06Handle);
   } 
-  #else //50ms
+  #else //50ms  
   osSemaphoreRelease(hmiCanBusI
   dleSem06Handle);
   #endif
   /* USER CODE END p2000wHeartCallback04 */
 }
-
 /* beepHeartCallback05 function */
 void beepHeartCallback05(void *argument)
 {
@@ -2589,16 +2558,15 @@ void app_sys_genaration_status_manage(void)
   osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO2_BIT);
   osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO3_BIT);
   #endif 
-  //环境温度报警
+   //环境温度报警
   if(app_get_io_status(In4_enviroment_tmprature_alert)==SUCCESS)
   {  
     osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO4_BIT);    
   }
   else 
-  {
+  {    
     osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO4_BIT);
-  }	
-  //气泵过热报警
+  }	//气泵过热报警
 	if(app_get_io_status(In5_h_air_error)==SUCCESS)
 	{  
     osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO5_BIT); 
@@ -2606,7 +2574,8 @@ void app_sys_genaration_status_manage(void)
 	else 
   {   
     osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO5_BIT);
-  }//气泵气压过高信号报警,低报警
+  }  
+	//气泵气压过高信号报警,低报警
 	if(app_get_io_status(In6_Hyperbaria_OFF_Signal)==SUCCESS)
 	{ 
     osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO6_BIT);  
@@ -2614,18 +2583,7 @@ void app_sys_genaration_status_manage(void)
 	else
   {
     osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO6_BIT);
-  }
-  //治疗水瓶液位 低有效
-  if(HAL_GPIO_ReadPin(TREATMENT_WATER_DEPTH_in_GPIO_Port,TREATMENT_WATER_DEPTH_in_Pin)==GPIO_PIN_RESET)
-  {
-    sEnvParam.treatment_water_depth=1;   
-    osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT ); 
-  }
-  else
-  {
-    sEnvParam.treatment_water_depth=0;
-    osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT );
-  } 
+  }  
   //治疗水OK就绪信号 
 	if(app_get_io_status(In7_water_ready_ok)==SUCCESS&&sEnvParam.treatment_water_depth!=0)
 	{  
@@ -2636,27 +2594,24 @@ void app_sys_genaration_status_manage(void)
     osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO7_BIT);
   }
   //水循环就绪信号
-	if(app_get_io_status(In8_water_circle_ok)==SUCCESS&&sEnvParam.cool_water_depth>u_sys_param.sys_config_param.cool_water_depth_low)
-	{  
-    u_sys_param.sys_config_param.tec_switch=1;
-    if(sEnvParam.cool_water_depth<u_sys_param.sys_config_param.cool_water_depth_high)
+	if(app_get_io_status(In8_water_circle_ok)==SUCCESS&&sEnvParam.cool_water_depth>=u_sys_param.sys_config_param.cool_water_depth_low)
+	{ 
+    if(sEnvParam.cool_water_depth<=u_sys_param.sys_config_param.cool_water_depth_high)
     {     
       osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO8_BIT);
     } 
-	  else osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO8_BIT);//水过量
+	  else osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO8_BIT);
   }
 	else 
-  {
-    u_sys_param.sys_config_param.tec_switch=0;
+  {  
     osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_IO8_BIT);
   }
-  if(sEnvParam.NTC_temprature>MAX_TMC2226_NTC_TEMPRATURE)//||sEnvParam.treatment_water_pressure>MAX_TREATMENT_WATER_PRESSURE+sEnvParam.enviroment_temprature)//过热或者堵转
+  if(sEnvParam.NTC_temprature>MAX_TMC2226_NTC_TEMPRATURE)
   {
     osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_9_NTC_BIT);  
   }
   else
   {
-    
     osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_9_NTC_BIT);
   }
   if(sEnvParam.iBus<MAX_IBUS_MA)//<10A
@@ -2674,9 +2629,25 @@ void app_sys_genaration_status_manage(void)
   else
   {
     osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_11_VBUS_BIT);
-  }    
-  //紧急开关,高有效
-  if(HAL_GPIO_ReadPin(EMERGENCY_LASER_STOP_STATUS_in_GPIO_Port,EMERGENCY_LASER_STOP_STATUS_in_Pin)==GPIO_PIN_RESET)
+  } 
+  if(sEnvParam.eth_k1_temprature>ERR_LOW_TEMPRATURE_LASER&&sEnvParam.eth_k1_temprature<ERR_HIGH_TEMPRATURE_LASER)
+  { 
+    osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_12_K1_TEMPRATURE_BIT);       
+  }  
+  else
+  {   
+    osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_12_K1_TEMPRATURE_BIT);           
+  }  
+		if(sEnvParam.eth_k2_temprature>ERR_LOW_TEMPRATURE_LASER&&sEnvParam.eth_k2_temprature<ERR_HIGH_TEMPRATURE_LASER)
+    {
+      osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_13_K2_TEMPRATURE_BIT);
+    }
+    else 
+    {     
+      osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_13_K2_TEMPRATURE_BIT);
+    } 
+  //紧急开关
+  if(app_get_io_status(In9_emergency_ok)==SUCCESS)
   {
     osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_14_EMERGENCY_KEY_BIT);
   }
@@ -2689,6 +2660,25 @@ void app_sys_genaration_status_manage(void)
       DEBUG_PRINTF("emergency!\r\n");   
       osSemaphoreRelease(laserCloseSem05Handle);  
     } 
+  }
+  //治疗水瓶液位 低有效
+  if(HAL_GPIO_ReadPin(TREATMENT_WATER_DEPTH_in_GPIO_Port,TREATMENT_WATER_DEPTH_in_Pin)==GPIO_PIN_RESET)
+  {
+    sEnvParam.treatment_water_depth=1;   
+    osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT ); 
+  }  
+  else
+  {
+    sEnvParam.treatment_water_depth=0;
+    osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_15_WATER_AIR_PREPARE_BIT );
+  } 
+  if(sEnvParam.cool_water_depth<u_sys_param.sys_config_param.cool_water_depth_low||sEnvParam.cool_water_depth>u_sys_param.sys_config_param.cool_water_depth_high)
+  {
+    osEventFlagsClear(auxStatusEvent01Handle,EVENTS_AUX_STATUS_16_COOL_WATER_BIT);
+  }
+  else 
+  {
+    osEventFlagsSet(auxStatusEvent01Handle,EVENTS_AUX_STATUS_16_COOL_WATER_BIT);
   }
   //DEBUG_PRINTF("IO8~1=%d%d%d%d%d%d%d%d\r\n" ,sGenSta.water_circle_ok_status,sGenSta.water_ready_ok_status,\
     sGenSta.Hyperbaria_OFF_Signal_staus,sGenSta.h_air_error_status ,sGenSta.enviroment_tmprature_alert_status,\
@@ -2737,7 +2727,7 @@ void app_set_default_sys_config_param(void)
   u_sys_param. sys_config_param.jtId=0;
   u_sys_param. sys_config_param.jt_status=1; 
   u_sys_param. sys_config_param.cool_temprature_low=210;//21.0f
-  u_sys_param. sys_config_param.cool_temprature_target=230;//23.0f
+  u_sys_param. sys_config_param.cool_temprature_target=240;//24.0f
   u_sys_param. sys_config_param.cool_temprature_high=280;//28.0f
   u_sys_param. sys_config_param.photodiod_low=0;//50mj
   u_sys_param. sys_config_param.photodiod_mid=99;//100mJ
@@ -2793,15 +2783,13 @@ void app_set_default_sys_config_param(void)
       DEBUG_PRINTF("load default sys param\r\n");		 
     }
     else 
-    {
-      //check param
+    { //check param
       u_sys_param.sys_config_param.synchronousFlag=0;//请求配置      
       if(u_sys_param.sys_config_param.cool_temprature_target>280||u_sys_param.sys_config_param.cool_temprature_target<210)
       {
-        u_sys_param.sys_config_param.cool_temprature_target=240;
+        u_sys_param.sys_config_param.cool_temprature_target = 240;
       } 
-      memcpy(u_sys_default_param.data,u_sys_param.data,sizeof(SYS_CONFIG_PARAM));     
-      
+      memcpy(u_sys_default_param.data,u_sys_param.data,sizeof(SYS_CONFIG_PARAM));  
       laser_ctr_param.airPressureLevel=1;
       laser_ctr_param.treatmentWaterLevel=0; 
       laser_ctr_param.ledLightLevel=20;
@@ -2862,6 +2850,7 @@ void app_set_default_sys_config_param(void)
     }		  
     return flag;
  }
+
  /************************************************************************//**
   * @brief 气泵管理
   * @param air_level 气泵气压等级
@@ -2869,8 +2858,7 @@ void app_set_default_sys_config_param(void)
   * @retval 
   *****************************************************************************/
  void app_air_pump_manage(unsigned char air_level)
- {
-		uint32_t eventFlag= osEventFlagsGet(auxStatusEvent01Handle);
+ {		
     unsigned char duty_cali=0,duty;
 		float air_pressure=MID_AIR_PUMP_PRESSURE+sEnvParam.air_gzp_enviroment_pressure_kpa;
 		if(air_level==1)
@@ -2892,7 +2880,7 @@ void app_set_default_sys_config_param(void)
       //air_pressure=MID_AIR_PUMP_PRESSURE+sEnvParam.air_gzp_enviroment_pressure_kpa;
     }    
     
-    if(air_level!=0&&((eventFlag&EVENTS_AUX_STATUS_IO6_BIT)== EVENTS_AUX_STATUS_IO6_BIT))//
+    if(air_level!=sGenSta.air_level_status)//((eventFlag&EVENTS_AUX_STATUS_IO6_BIT)== EVENTS_AUX_STATUS_IO6_BIT)&&sGenSta.laser_run_B0_pro_hot_status!=0)//
     {
       if(sEnvParam.air_gzp_enviroment_pressure_kpa>100.0)
       {
@@ -2947,10 +2935,8 @@ void app_set_default_sys_config_param(void)
       sGenSta.circle_water_box_temprature = (char)((int)sEnvParam.eth_k1_temprature);
     }  
     if(sGenSta.laser_run_B0_pro_hot_status==0) sGenSta.laser_param_B01_energe_status = 1; 
-    sGenSta.treatment_water_level_status = laser_ctr_param.treatmentWaterLevel;
-    sGenSta.air_level_status = laser_ctr_param.airPressureLevel;	
-    sGenSta.laser_run_B2_gx_test_status = laser_ctr_param.ctrTestMode;   
-    sGenSta.genaration_io_status = osEventFlagsGet(auxStatusEvent01Handle);	 
+    sGenSta.treatment_water_level_status = laser_ctr_param.treatmentWaterLevel;	
+    sGenSta.laser_run_B2_gx_test_status = laser_ctr_param.ctrTestMode;  
   }
   /************************************************************************//**
   * @brief laser
@@ -3127,13 +3113,13 @@ unsigned short int app_hmi_package_check(unsigned char* pBuff,unsigned short int
                 }
                 else
                 {
-                    retLen = i;
-                    break;
+                  retLen = i;
+                  break;
                 }
             }
             else
             {
-                i++;
+              i++;
             }
         }
         else
