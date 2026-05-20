@@ -29,7 +29,7 @@ typedef struct {
    unsigned short int end;// 0x0A0D 
 }__attribute__ ((packed)) PWR_2000W_APP_PACKAGE;//光纤应用数据解析
 //0~200mJ =5*40
-U_P2000W_TX_MSG u_p2000w_tx_msg;
+
 P_2000W_STATUS p2000w_status;
 P_2000W_SET_PARAM p2000w_ctr_param;	
 static unsigned char p2000w_soft_version[5]={0x14,0xEA,0x07,0x04,0x06};

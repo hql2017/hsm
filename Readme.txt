@@ -77,9 +77,40 @@ LS_set_us:目标光脉宽
      增加错误计数，超过3次，判定为通信失联。关闭RGB更新，断电重置。
 
 	 	   	20260519:V0.2
-硬件版本V1.0_20240421:
+硬件版本V1.0_2024021:
   1、激光2000W新电源5台试产样机，调试；
      电源脉宽步进由10us修改为1us。
+
+	 	   	20260520:V0.2
+硬件版本V1.0_2024021:
+根据测试数据：调整脉宽如下 精度±5us.
+/***********************脉宽调整************************/
+ unsigned short int pulse_width_offeset=0,pulseProUs,pulseOffDelayUs;
+          if(p2000w_ctr_param.outVoltageSet<320)
+          {//光信号延迟
+            pulseOffDelayUs=8;
+            pulseProUs=(unsigned short int)(20.5-(320-p2000w_ctr_param.outVoltageSet)*0.05);
+            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
+          }
+          else if(p2000w_ctr_param.outVoltageSet<400)
+          {
+            pulseOffDelayUs=11;
+            pulseProUs=(unsigned short int)(16.5+(400-p2000w_ctr_param.outVoltageSet)*0.05);
+            pulse_width_offeset =pulseProUs+pulseOffDelayUs;    
+          }
+          else
+          {    
+            pulseOffDelayUs=11;
+            pulseProUs=(unsigned short int)(16.5-(p2000w_ctr_param.outVoltageSet-400)*0.02);
+            pulse_width_offeset =pulseProUs+pulseOffDelayUs;       
+          }  
+          Tpus=p2000w_ctr_param.pulseWidthSet-pulse_width_offeset+e_q_cali_pulse;//控制电脉宽
+		  if(p2000w_ctr_param.outVoltageSet<300)
+		  {//光信号不稳定，只能靠测试数据，开环控制。
+			不再适用此次计算方法。
+		  }
+***********************************************************/
+
 
   ///////*************未解决问题********************//
   1、蠕动泵使能脚，有效电平从低有效改为高有效（下一硬件版本更新202600518）

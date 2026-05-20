@@ -65,7 +65,6 @@ typedef union{
 	P_2000W_TX_MESSAGE msg;
 	unsigned char data[sizeof(P_2000W_TX_MESSAGE)];
 }U_P2000W_TX_MSG;
-extern U_P2000W_TX_MSG u_p2000w_tx_msg;
 extern P_2000W_STATUS p2000w_status;
 extern P_2000W_SET_PARAM p2000w_ctr_param;	
 void app_p2000W_receive_config( void );
