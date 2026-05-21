@@ -495,7 +495,10 @@ void filter_ad1(void)
     unsigned short int i = 0,j=0;
     static unsigned char levelIdx = 0; 
     //90%计算峰值;//50%计算脉宽和功率;
-    unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)>>1;//50%; 
+    //半导体1064激光
+    //unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)>>1;//50%;
+    //氙灯1064波形不同,计算峰值
+    unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)*0.9;//90%; 
     // Vmax;
     for(i = 0; i < pulse_ad_count; i++)
     {

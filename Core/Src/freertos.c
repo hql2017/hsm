@@ -1058,7 +1058,7 @@ void laserWorkTask04(void *argument)
       {           
         if(sGenSta.laser_run_B1_laser_out_status==0)
         { 
-          #if 0         
+          #if 1         
           //test                              
           unsigned short int test_V=laser_ctr_param.ledLightLevel*5+200;//energe_140us_voltage[energeNum];//200~600V;          
           u_p2000w_msg.msg.code=P2000W_CODE_VOLTAGE_SET;
@@ -1070,27 +1070,33 @@ void laserWorkTask04(void *argument)
             osDelay(P2000W_FRAME_DELAY_TIME);
             osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_msg.data,0,0);
           }
-          else DEBUG_PRINTF("set test voltage=%dV\r\n",test_V);              
+          else DEBUG_PRINTF("set test voltage=%dV\r\n",test_V);  
           unsigned short int pulse_width_offeset=0,pulseProUs,pulseOffDelayUs;
-          if(test_V<320)
-          {//光信号延迟
-            pulseOffDelayUs=8;
-            pulseProUs=(unsigned short int)(20.5-(320-test_V)*0.05);
+          if(test_V<275)//无关触发信号
+          {
+            pulseOffDelayUs=0+5*(275-test_V)*0.2;;
+            pulseProUs=(unsigned short int)(26.0+(275-test_V)*0.6);
             pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
-          }
-          else if(test_V<400)
+          }   
+          else if(test_V<350)
+          {
+            if(test_V<300) pulseOffDelayUs =11+5*(300-test_V)*0.24;
+            else pulseOffDelayUs=11;
+            pulseProUs=(unsigned short int)(19.0+(350-test_V)*0.12);
+            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
+          }   
+          else if(test_V<475)
           {
             pulseOffDelayUs=11;
-            pulseProUs=(unsigned short int)(16.5+(400-test_V)*0.05);
-            pulse_width_offeset =pulseProUs+pulseOffDelayUs;    
-          }
+            pulseProUs=(unsigned short int)(14.0+(475-test_V)*0.05);
+            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
+          }             
           else
           {    
             pulseOffDelayUs=11;
-            pulseProUs=(unsigned short int)(16.5-(test_V-400)*0.02);
+            pulseProUs=14;
             pulse_width_offeset =pulseProUs+pulseOffDelayUs;       
-          }  
-          pulseProUs=p2000w_ctr_param.pulseWidthSet-pulse_width_offeset;
+          }           
           u_p2000w_msg.msg.code=P2000W_CODE_PULSE_WIDTH;
           //u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet;  
           u_p2000w_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet-pulse_width_offeset;
@@ -1219,16 +1225,8 @@ void laserWorkTask04(void *argument)
             //Pavg=Ppeak*u_sys_param.sys_config_param.laser_pulse_width_us*laserFreq；//占空比
             //E=Pavg/freq;->Pavg=freq*E //脉冲能量
             //Ppeak=E/u_sys_param.sys_config_param.laser_pulse_width_us;//峰值功率 
-            double p_avg=(e_feedback*0.00052)*u_sys_param.sys_config_param.laser_pulse_width_us*laser_ctr_param.laserFreq;
-            // sEnvParam.laser_1064_energy=p_avg/laser_ctr_param.laserFreq;//能量
-            if(laser_ctr_param.laserFreq<=5)
-            {             
-              sEnvParam.laser_1064_energy=p_avg/laser_ctr_param.laserFreq;//能量
-            }
-            else 
-            {              
-              sEnvParam.laser_1064_energy=p_avg*1.575/laser_ctr_param.laserFreq;//能量
-            }
+            double p_avg=(e_feedback*0.00052)*u_sys_param.sys_config_param.laser_pulse_width_us*laser_ctr_param.laserFreq;                         
+            sEnvParam.laser_1064_energy=p_avg/laser_ctr_param.laserFreq;//能量
             float peak_P = (sEnvParam.laser_1064_energy)/u_sys_param.sys_config_param.laser_pulse_width_us;//peak  power ,峰值功率 
             DEBUG_PRINTF("E=%.1fmJ p_avg=%.2fmw feedBck=%.1fmV pulseCount=%d rdb=%d 980=%d\r\n",sEnvParam.laser_1064_energy,p_avg,e_feedback,u_sys_param.sys_config_param.laser_pulse_count,u_sys_param.sys_config_param.RDB_use_timeS,u_sys_param.sys_config_param.laser_use_timeS);              
             if(sEnvParam.laser_1064_energy>0&&laser_ctr_param.laserEnerge>0&&e_feedback>0)
@@ -2108,29 +2106,36 @@ void laserProhotTask09(void *argument)
           #endif  
           #if 1  
           unsigned short int pulse_width_offeset=0,pulseProUs,pulseOffDelayUs;
-          if(p2000w_ctr_param.outVoltageSet<320)
-          {//光信号延迟
-            pulseOffDelayUs=8;
-            pulseProUs=(unsigned short int)(20.5-(320-p2000w_ctr_param.outVoltageSet)*0.05);
+          if(p2000w_ctr_param.outVoltageSet<275)//无关触发信号
+          {
+            pulseOffDelayUs=0+5*(275-p2000w_ctr_param.outVoltageSet)*0.2;;
+            pulseProUs=(unsigned short int)(26.0+(275-p2000w_ctr_param.outVoltageSet)*0.6);
             pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
-          }
-          else if(p2000w_ctr_param.outVoltageSet<400)
+          }   
+          else if(p2000w_ctr_param.outVoltageSet<350)
+          {
+            if(p2000w_ctr_param.outVoltageSet<300) pulseOffDelayUs =11+5*(300-p2000w_ctr_param.outVoltageSet)*0.24;
+            else pulseOffDelayUs=11;
+            pulseProUs=(unsigned short int)(19.0+(350-p2000w_ctr_param.outVoltageSet)*0.12);
+            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
+          }   
+          else if(p2000w_ctr_param.outVoltageSet<475)
           {
             pulseOffDelayUs=11;
-            pulseProUs=(unsigned short int)(16.5+(400-p2000w_ctr_param.outVoltageSet)*0.05);
-            pulse_width_offeset =pulseProUs+pulseOffDelayUs;    
-          }
+            pulseProUs=(unsigned short int)(14.0+(475-p2000w_ctr_param.outVoltageSet)*0.05);
+            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
+          }             
           else
           {    
             pulseOffDelayUs=11;
-            pulseProUs=(unsigned short int)(16.5-(p2000w_ctr_param.outVoltageSet-400)*0.02);
+            pulseProUs=14;
             pulse_width_offeset =pulseProUs+pulseOffDelayUs;       
-          }  
+          }           
           u_p2000w_tx_msg.msg.code=P2000W_CODE_PULSE_WIDTH;
           //u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet;  
           //电源效率和灯管特性在不同频率下有差异，导致脉冲峰值功率变化能量波动，做脉宽补偿（0~12us.1~60Hz）       
           unsigned short int e_q_cali_pulse = 0;//laser_ctr_param.laserFreq/5; 
-          u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet-pulse_width_offeset+e_q_cali_pulse;//8us 滤波迟滞  
+          u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet;//-pulse_width_offeset+e_q_cali_pulse;  
           p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME); 
           {
             if(p_mtxs!=osOK) 
