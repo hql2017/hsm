@@ -400,7 +400,7 @@ static uint16_t advalue[5];
 static volatile uint16_t ad2Buff[MAX_AD2_ENERGE_BUFF_LENGTH];
 static uint16_t pulse_ad_count = 30;
 static uint16_t ad2vale;
-static uint16_t ad2hle[16];
+static volatile uint16_t ad2hle[8];
 //static KalmanFilter kalmAd2;
 
 extern TIM_HandleTypeDef htim6;//hal tick timer
@@ -420,7 +420,7 @@ void app_start_multi_channel_adc(void)
 void pulse_adc_start(unsigned char Len)
 {  
   if(Len>MAX_AD2_ENERGE_BUFF_LENGTH) pulse_ad_count=MAX_AD2_ENERGE_BUFF_LENGTH;
-  else if(Len<32) pulse_ad_count=32;
+  else if(Len<50) pulse_ad_count=50;
   else  pulse_ad_count=Len;
   HAL_ADC_Start_DMA(&hadc2,(unsigned int*)ad2Buff,pulse_ad_count); 
 }
@@ -491,18 +491,18 @@ void filter_ad1(void)
     #if 0
     ad2vale = ad_square_value(ad2Buff,MAX_AD2_ENERGE_BUFF_LENGTH);
     #else
-    uint32_t sum = 0U;
+    unsigned long int  sum = 0U;
     unsigned short int i = 0,j=0;
     static unsigned char levelIdx = 0; 
     //90%计算峰值;//50%计算脉宽和功率;
     //半导体1064激光
     //unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)>>1;//50%;
     //氙灯1064波形不同,计算峰值
-    unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)*0.9;//90%; 
-    // Vmax;
+    unsigned short int max_value=match_max((unsigned short int *)ad2Buff,pulse_ad_count);
+    unsigned short int max_half_value=(unsigned short int)(max_value*0.9);//90%;     
     for(i = 0; i < pulse_ad_count; i++)
     {
-      if(ad2Buff[i]>max_half_value)
+      if(ad2Buff[i]>max_half_value&&ad2Buff[i]<max_value)//去掉最高值
       {  
         j++;
         sum += ad2Buff[i];
@@ -516,13 +516,18 @@ void filter_ad1(void)
       ad2hle[idx] = (unsigned short int)sum;
     }
     levelIdx = (levelIdx + 1) & 0xFF; /* keep wrapping but idx uses &0x07 */
+    #if 1
     sum = 0;
     for(i = 0; i < 8; i++)
     {     
-      if(ad2hle[i]==0) sum += ad2hle[0];
-      else sum += ad2hle[i];       
+      if(ad2hle[i]==0) sum += ad2hle[0];     
+      else  sum += ad2hle[i];
     } 
-    ad2vale = (unsigned short int)(sum >> 3);   
+    ad2vale =(unsigned short int)(sum >> 3);
+    #else 
+    ad2vale =ad2hle[idx];// (unsigned short int)(sum >> 3);
+    #endif
+    
     #endif 
     #if 0
     //kalman_filter_update(&kalmAd2, sum>>3);

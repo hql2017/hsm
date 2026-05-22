@@ -45,7 +45,7 @@ extern ADC_HandleTypeDef hadc2;
 #define AD1_WATER_PRESSER_INDEX 4 //PC4
 #define AD2_LASER_1064_INDEX   5//PA3
 
-#define  MAX_AD2_ENERGE_BUFF_LENGTH  224//(64.5cycle 1us)//(387.5cycle 5us)
+#define  MAX_AD2_ENERGE_BUFF_LENGTH  250//(64.5cycle 1us)//(387.5cycle 5us)
 /* USER CODE END Private defines */
 
 void MX_ADC1_Init(void);
