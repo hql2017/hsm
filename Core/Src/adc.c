@@ -499,10 +499,10 @@ void filter_ad1(void)
     //unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)>>1;//50%;
     //氙灯1064波形不同,计算峰值
     unsigned short int max_value=match_max((unsigned short int *)ad2Buff,pulse_ad_count);
-    unsigned short int max_half_value=(unsigned short int)(max_value*0.9);//90%;     
+    unsigned short int max_half_value=(unsigned short int)(max_value*0.90);//95%;  //已有硬件滤波直接使用峰值   
     for(i = 0; i < pulse_ad_count; i++)
     {
-      if(ad2Buff[i]>max_half_value&&ad2Buff[i]<max_value)//去掉最高值
+      if(ad2Buff[i]>max_half_value)
       {  
         j++;
         sum += ad2Buff[i];
@@ -515,19 +515,24 @@ void filter_ad1(void)
     } else {
       ad2hle[idx] = (unsigned short int)sum;
     }
-    levelIdx = (levelIdx + 1) & 0xFF; /* keep wrapping but idx uses &0x07 */
+    
     #if 1
-    sum = 0;
-    for(i = 0; i < 8; i++)
-    {     
-      if(ad2hle[i]==0) sum += ad2hle[0];     
-      else  sum += ad2hle[i];
-    } 
-    ad2vale =(unsigned short int)(sum >> 3);
+      sum = 0;
+      for(i = 0; i < 8; i++)
+      {     
+        if(ad2hle[i]==0) sum += ad2hle[0];     
+        else  sum += ad2hle[i];
+      } 
+      unsigned short int temp_avg=(unsigned short int)(sum >> 3);
+      if(ad2vale*2>temp_avg&&ad2vale<2*temp_avg) 
+      {
+        ad2vale =temp_avg;
+      }
+      else ad2vale=ad2hle[idx];
     #else 
     ad2vale =ad2hle[idx];// (unsigned short int)(sum >> 3);
     #endif
-    
+    levelIdx = (levelIdx + 1) & 0xFF; /* keep wrapping but idx uses &0x07 */
     #endif 
     #if 0
     //kalman_filter_update(&kalmAd2, sum>>3);
