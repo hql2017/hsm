@@ -346,10 +346,10 @@ unsigned int  app_owb_key_scan(unsigned short int timeMs);
 
 //1064能量值对应电压表0~200mJ
 
-static unsigned short int energe_140us_voltage[41]={ 200,220,230,245,260,275,
-  285,300,310,320,322,325,335,345,355,365,375,385,395,410,415,
-  420,425,430,440,450,460,468,474,480,486,492,498,504,510,
-516,522,528,534,540,546};
+static unsigned short int energe_140us_voltage[41]={ 200,220,230,245,260,280,
+  290,300,310,320,330,340,345,350,355,360,365,375,385,395,405,415,425,
+  432,440,448,456,464,472,480,488,496,500,505,510,515,520,525,
+530,535,540};
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -752,7 +752,7 @@ void auxTask02(void *argument)
 			HAL_GPIO_TogglePin(MCU_SYS_health_LED_GPIO_Port,MCU_SYS_health_LED_Pin); 
       app_sram_status_monitor();  
       //DEBUG_PRINTF("air pre=%.1f water_pressure=%.1f \r\n",sEnvParam.air_pump_pressure,sEnvParam.treatment_water_pressure);//
-      //DEBUG_PRINTF("air_press=%.1f  \r\n",HAL_GPIO_ReadPin(Hyperbaria_OFF_Signal_GPIO_Port,Hyperbaria_OFF_Signal_Pin));     
+     // DEBUG_PRINTF("temprature=%.1f  \r\n",sEnvParam.eth_k1_temprature);     
 		}	    
 		/**********************RGB****************************/		
 		osStatus_t rgb_s=osMessageQueueGet(rgbQueue02Handle,&rgbRun,0,5);	 
@@ -769,6 +769,23 @@ void auxTask02(void *argument)
           {
             fan_spd_set(FAN25_NUM,1000);
             fan_spd_set(FAN38_COMPRESSOR_NUM,1000);          
+          }
+          else {
+            if(sEnvParam.eth_k1_temprature>30.0)	
+            {//high temprature
+              fan_spd_set(FAN25_NUM,3000);
+              fan_spd_set(FAN38_COMPRESSOR_NUM,3000);       
+            }
+            else  if(sEnvParam.eth_k1_temprature>24.0)	
+            {
+              fan_spd_set(FAN25_NUM,2000);
+              fan_spd_set(FAN38_COMPRESSOR_NUM,2000);       
+            }
+            else  if(sEnvParam.eth_k1_temprature>10.0)	
+            {
+              fan_spd_set(FAN25_NUM,1000);
+              fan_spd_set(FAN38_COMPRESSOR_NUM,1000);       
+            }
           }
         }
       break;
@@ -1061,10 +1078,11 @@ void laserWorkTask04(void *argument)
         { 
           #if 1         
           //test    
-         // unsigned short int test_energe=laser_ctr_param.ledLightLevel*5;
-          //test_energe%=201;                      
-          unsigned short int test_V=laser_ctr_param.ledLightLevel*1+200+laser_ctr_param.airPressureLevel*100;//energe_140us_voltage[energeNum];//200~600V;          
-          //unsigned short int test_V= energe_140us_voltage[test_energe/5]; 
+          unsigned short int test_energe=laser_ctr_param.ledLightLevel*5;
+          test_energe%=201;     
+          unsigned short int test_V = energe_140us_voltage[test_energe/5]+laser_ctr_param.timerCtr*1;                  
+         // unsigned short int test_V=laser_ctr_param.ledLightLevel*1+200+laser_ctr_param.airPressureLevel*100;//energe_140us_voltage[energeNum];//200~600V;          
+         
           u_p2000w_msg.msg.code=P2000W_CODE_VOLTAGE_SET;
           u_p2000w_msg.msg.cmd=test_V;
           p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_msg.data,0,P2000W_FRAME_DELAY_TIME);
@@ -1076,35 +1094,40 @@ void laserWorkTask04(void *argument)
           }
           else DEBUG_PRINTF("set test voltage=%dV\r\n",test_V);  
           unsigned short int pulse_width_offeset=0,pulseProUs,pulseOffDelayUs;   
-          if(test_V<275)//无关触发信号
+          if(test_V<280)//无关触发信号
           {
-            pulseOffDelayUs=0+5*(275-test_V)*0.2;;
-            pulseProUs=(unsigned short int)(26.5+(275-test_V)*0.6);
-            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
+            pulseOffDelayUs=10;
+            pulseProUs=(unsigned short int)(34+(280-test_V)*0.40);                   
           }   
-          else if(test_V<350)
+          else if(test_V<310)
           {
-            pulseOffDelayUs=11;
-            pulseProUs=(unsigned short int)(19.5+(350-test_V)*0.20);
-            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
-          }   
+            pulseOffDelayUs=10;
+            pulseProUs=(unsigned short int)(25+(310-test_V)*0.30);                     
+          }  
+          else if(test_V<370)
+          {
+            if(test_V<340)
+            {
+              pulseProUs=(unsigned short int)(19+(370-test_V)*0.10);  
+            }
+            else pulseProUs=(unsigned short int)(20+(370-test_V)*0.10); 
+            pulseOffDelayUs=10;                              
+          }    
           else if(test_V<470)
           {
-            if(test_V<400
-            )
+            if(test_V<440)
             {
-              pulseOffDelayUs=8;
+              pulseProUs=(unsigned short int)(14.0+(470-test_V)*0.05); 
             }
-            else pulseOffDelayUs=11;
-            pulseProUs=(unsigned short int)(14.5+(470-test_V)*0.1);
-            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
-          }             
+            else pulseProUs=(unsigned short int)(14.5+(470-test_V)*0.05); 
+            pulseOffDelayUs=10;
+          }                    
           else
           {    
             pulseOffDelayUs=11;
-            pulseProUs=14;
-            pulse_width_offeset =pulseProUs+pulseOffDelayUs;       
-          }           
+            pulseProUs=14;                 
+          }  
+          pulse_width_offeset =pulseProUs+pulseOffDelayUs;  
           u_p2000w_msg.msg.code=P2000W_CODE_PULSE_WIDTH;
           //u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet;  
           u_p2000w_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet-pulse_width_offeset;
@@ -1232,8 +1255,8 @@ void laserWorkTask04(void *argument)
             //Pavg=Ppeak*u_sys_param.sys_config_param.laser_pulse_width_us*laserFreq；//占空比
             //E=Pavg/freq;->Pavg=freq*E //脉冲能量
             //Ppeak=E/u_sys_param.sys_config_param.laser_pulse_width_us;//峰值功率 
-            double p_avg=(e_feedback*0.0007)*(u_sys_param.sys_config_param.laser_pulse_width_us-11)*laser_ctr_param.laserFreq;  
-            float peak_P = (e_feedback*0.0007);//peak  power ,峰值功率                        
+            double p_avg=(e_feedback*0.0008)*(u_sys_param.sys_config_param.laser_pulse_width_us)*laser_ctr_param.laserFreq;  
+            float peak_P = (e_feedback*0.0008);//peak  power ,峰值功率                        
             sEnvParam.laser_1064_energy=p_avg/laser_ctr_param.laserFreq;//能量             
             DEBUG_PRINTF("E=%.1fmJ peak_P=%.2fmw feedBck=%.1fmV pulseCount=%d rb=%d 980=%d\r\n",sEnvParam.laser_1064_energy,peak_P,e_feedback,u_sys_param.sys_config_param.laser_pulse_count,u_sys_param.sys_config_param.RDB_use_timeS,u_sys_param.sys_config_param.laser_use_timeS);              
             if(sEnvParam.laser_1064_energy>0&&laser_ctr_param.laserEnerge>0&&e_feedback>0)
@@ -1380,14 +1403,14 @@ void laserWorkTask04(void *argument)
             osDelay(L980_CAN_MINI_TIME_MS);
             timeout+=L980_CAN_MINI_TIME_MS;
             if(timeout>L980_MAX_PROHOT_WAIT_TIME)
-            { //l980 power off 
+            { //l980 power off               
               break;
             }          
           }while((u_s_l980.sta.staByte&L980_STA_PROHOT_BIT1)==L980_STA_PROHOT_BIT1);  
           if((u_s_l980.sta.staByte&L980_STA_PROHOT_BIT1)!=L980_STA_PROHOT_BIT1)   
           {   
             DEBUG_PRINTF("l980 exit prohot succcess \r\n");  
-          }
+          }          
           else
           {
             DEBUG_PRINTF("l980 exit porhot timeout!power off\r\n"); 
@@ -1488,7 +1511,7 @@ void laserWorkTask04(void *argument)
         else 
         {         
           #if 1// energe moniter        
-          if ( sGenSta.laser_run_B4_laser_980_out_status!=0&&statusJT==osOK) // cali         
+          if(sGenSta.laser_run_B4_laser_980_out_status!=0&&statusJT==osOK) // cali         
           {     
             sEnvParam.laser_1064_energy=(u_s_l980.sta.energeFeedback)*0.004;
             DEBUG_PRINTF("e_p=%.1fw feedBck=%dmV  rdb=%d 980=%d\r\n",sEnvParam.laser_1064_energy,u_s_l980.sta.energeFeedback,u_sys_param.sys_config_param.RDB_use_timeS,u_sys_param.sys_config_param.laser_use_timeS);              
@@ -1594,8 +1617,7 @@ void fastAuxTask05(void *argument)
     /***********气泵管理*******************/
 		app_get_adc_value(AD1_AIR_PRESSER_INDEX,&sEnvParam.air_pump_pressure);
 		app_air_pump_manage(laser_ctr_param.airPressureLevel);  
-		/***********aux genaration状态检查*******************/   
-    
+		/***********aux genaration状态检查*******************/       
 		app_fresh_laser_status_param(); 
     /***********循环水液位检查*******************/ 
     app_get_adc_value(AD1_WATER_PRESSER_INDEX,&sEnvParam.treatment_water_pressure);	     
@@ -2113,32 +2135,46 @@ void laserProhotTask09(void *argument)
           p2000w_ctr_param.outVoltageSet =test_V;
           #endif  
           #if 1  
-          unsigned short int pulse_width_offeset=0,pulseProUs,pulseOffDelayUs;
-          if(p2000w_ctr_param.outVoltageSet<275)//无关触发信号
+          unsigned short int pulse_width_offeset=0,pulseProUs,pulseOffDelayUs;  
+          
+          if(p2000w_ctr_param.outVoltageSet<280)//无关触发信号
           {
-            pulseOffDelayUs=275-p2000w_ctr_param.outVoltageSet;
-            pulseProUs=(unsigned short int)(191.0-p2000w_ctr_param.outVoltageSet*0.6);
-            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
+            pulseOffDelayUs=10;
+            pulseProUs=(unsigned short int)(146-p2000w_ctr_param.outVoltageSet*0.40);                   
           }   
-          else if(p2000w_ctr_param.outVoltageSet<350)
+          else if(p2000w_ctr_param.outVoltageSet<310)
           {
-            if(p2000w_ctr_param.outVoltageSet<300) pulseOffDelayUs =(unsigned short int)(371.0-p2000w_ctr_param.outVoltageSet*1.2);
-            else pulseOffDelayUs=11;
-            pulseProUs=(unsigned short int)(61.0-p2000w_ctr_param.outVoltageSet*0.12);
-            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
+            pulseOffDelayUs=10;
+            pulseProUs=(unsigned short int)(118-p2000w_ctr_param.outVoltageSet*0.30);                     
           }   
-          else if(p2000w_ctr_param.outVoltageSet<475)
+          else if( p2000w_ctr_param.outVoltageSet<370)
           {
-            pulseOffDelayUs=11;
-            pulseProUs=(unsigned short int)(37.75-p2000w_ctr_param.outVoltageSet*0.05);
-            pulse_width_offeset =pulseProUs+pulseOffDelayUs;         
-          }             
+            pulseOffDelayUs=10;
+            if( p2000w_ctr_param.outVoltageSet<340)
+            {
+              pulseProUs=(unsigned short int)(55- p2000w_ctr_param.outVoltageSet*0.10); 
+            }
+            else {
+              pulseProUs=(unsigned short int)(56- p2000w_ctr_param.outVoltageSet*0.10); 
+            }
+                              
+          }    
+          else if( p2000w_ctr_param.outVoltageSet<470)
+          {
+            pulseOffDelayUs=10;
+            if(p2000w_ctr_param.outVoltageSet<440)
+            {
+              pulseProUs=(unsigned short int)(37.5- p2000w_ctr_param.outVoltageSet*0.05); 
+            }
+            else   pulseProUs=(unsigned short int)(38- p2000w_ctr_param.outVoltageSet*0.05); 
+                           
+          }                    
           else
           {    
-            pulseOffDelayUs=10;
-            pulseProUs=14;
-            pulse_width_offeset =pulseProUs+pulseOffDelayUs;       
-          }           
+            pulseOffDelayUs=11;
+            pulseProUs=14;                 
+          }  
+          pulse_width_offeset =pulseProUs+pulseOffDelayUs;  
           u_p2000w_tx_msg.msg.code=P2000W_CODE_PULSE_WIDTH;
           //u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.pulseWidthSet;  
           //电源效率和灯管特性在不同频率下有差异，导致脉冲峰值功率变化能量波动，做脉宽补偿（0~12us.1~60Hz）       
@@ -2334,8 +2370,10 @@ void ge2117ManageTask10(void *argument)
   /* Infinite loop */
   uint32_t local_time100mS=0,local_timeMs=0;
   local_time100mS = 0;  
+  static KalmanFilter kalmTemprature;
   //float k0_cool_temprature;
   max_31865_pt1000(); 
+  kalman_filter_init(&kalmTemprature, 25.0, 0.1);
   osDelay(200);
   for(;;)
   {  
@@ -2347,7 +2385,7 @@ void ge2117ManageTask10(void *argument)
     local_time100mS++;
     local_timeMs+=100;       
     float temp_t_f = Get_pt_tempture();
-    sEnvParam.eth_k1_temprature = temp_t_f;
+    sEnvParam.eth_k1_temprature =(float) kalman_filter_update(&kalmTemprature, temp_t_f); 
     if((u_s_l980.sta.staByte&L980_STA_HEART_BIT0)==L980_STA_HEART_BIT0)
     {
       sEnvParam.eth_k2_temprature = u_s_l980.sta.realtemprature*0.1; 

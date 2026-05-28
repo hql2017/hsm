@@ -386,6 +386,9 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
 }
 
 /* USER CODE BEGIN 1 */
+
+
+
 /**
   * @brief start_adc
   * @param void
@@ -401,15 +404,15 @@ static volatile uint16_t ad2Buff[MAX_AD2_ENERGE_BUFF_LENGTH];
 static uint16_t pulse_ad_count = 30;
 static uint16_t ad2vale;
 static volatile uint16_t ad2hle[8];
-//static KalmanFilter kalmAd2;
+static KalmanFilter kalmAdEnerge;
 
 extern TIM_HandleTypeDef htim6;//hal tick timer
 void pulse_adc_start(unsigned char Len);
 void app_start_multi_channel_adc(void)
 {    
-    tim_triger_ad(&htim6);//low power 
-    HAL_ADC_Start_DMA(&hadc1,(unsigned int*)adBuff,MAX_AD_BUFF_LENGTH);  //4*64 
- // kalman_filter_init(&kalmAd2, 0, 0.1);
+  tim_triger_ad(&htim6);//low power 
+  HAL_ADC_Start_DMA(&hadc1,(unsigned int*)adBuff,MAX_AD_BUFF_LENGTH);  //4*64 
+  kalman_filter_init(&kalmAdEnerge, 0, 0.1);
 }
 /**
   * @brief pulse_adc_start
@@ -499,7 +502,7 @@ void filter_ad1(void)
     //unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)>>1;//50%;
     //氙灯1064波形不同,计算峰值
     unsigned short int max_value=match_max((unsigned short int *)ad2Buff,pulse_ad_count);
-    unsigned short int max_half_value=(unsigned short int)(max_value*0.90);//95%;  //已有硬件滤波直接使用峰值   
+    unsigned short int max_half_value=(unsigned short int)(max_value*0.5);   
     for(i = 0; i < pulse_ad_count; i++)
     {
       if(ad2Buff[i]>max_half_value)
@@ -510,27 +513,29 @@ void filter_ad1(void)
     } 
     /* store running levels in a circular 8-slot buffer */
     const unsigned char idx = levelIdx & 0x07;
-    if (j > 1) {
+    if (j > 1) {      
       ad2hle[idx] = (unsigned short int)(sum /j);
-    } else {
+    } else {      
       ad2hle[idx] = (unsigned short int)sum;
-    }
-    
-    #if 1
+    }    
+    #if 0
       sum = 0;
       for(i = 0; i < 8; i++)
       {     
         if(ad2hle[i]==0) sum += ad2hle[0];     
         else  sum += ad2hle[i];
       } 
-      unsigned short int temp_avg=(unsigned short int)(sum >> 3);
-      if(ad2vale*2>temp_avg&&ad2vale<2*temp_avg) 
-      {
-        ad2vale =temp_avg;
-      }
-      else ad2vale=ad2hle[idx];
+      unsigned short int temp_avg=(unsigned short int)(sum >> 3);      
     #else 
-    ad2vale =ad2hle[idx];// (unsigned short int)(sum >> 3);
+    ad2vale=(uint16_t) kalman_filter_update(&kalmAdEnerge, ad2hle[idx]); 
+    ad2hle[idx]=ad2vale;//滤波结果覆盖原始值,保持水平缓慢变化,避免突变;
+    sum = 0;
+      for(i = 0; i < 8; i++)
+      {     
+        if(ad2hle[i]==0) sum += ad2hle[0];     
+        else  sum += ad2hle[i];
+      } 
+      ad2vale=(unsigned short int)(sum >> 3);
     #endif
     levelIdx = (levelIdx + 1) & 0xFF; /* keep wrapping but idx uses &0x07 */
     #endif 
