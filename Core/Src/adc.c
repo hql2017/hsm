@@ -497,12 +497,13 @@ void filter_ad1(void)
     unsigned long int  sum = 0U;
     unsigned short int i = 0,j=0;
     static unsigned char levelIdx = 0; 
+    unsigned short int max_half_value=0;
     //90%计算峰值;//50%计算脉宽和功率;
     //半导体1064激光
     //unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)>>1;//50%;
     //氙灯1064波形不同,计算峰值
-    unsigned short int max_value=match_max((unsigned short int *)ad2Buff,pulse_ad_count);
-    unsigned short int max_half_value=(unsigned short int)(max_value*0.5);   
+    unsigned short int max_value=match_max((unsigned short int *)ad2Buff,pulse_ad_count);  
+    max_half_value= (unsigned short int)(max_value*0.90);//0.5);
     for(i = 0; i < pulse_ad_count; i++)
     {
       if(ad2Buff[i]>max_half_value)
@@ -530,12 +531,12 @@ void filter_ad1(void)
     ad2vale=(uint16_t) kalman_filter_update(&kalmAdEnerge, ad2hle[idx]); 
     ad2hle[idx]=ad2vale;//滤波结果覆盖原始值,保持水平缓慢变化,避免突变;
     sum = 0;
-      for(i = 0; i < 8; i++)
-      {     
-        if(ad2hle[i]==0) sum += ad2hle[0];     
-        else  sum += ad2hle[i];
-      } 
-      ad2vale=(unsigned short int)(sum >> 3);
+    for(i = 0; i < 8; i++)
+    {     
+      if(ad2hle[i]==0) sum += ad2hle[0];     
+      else  sum += ad2hle[i];
+    } 
+    ad2vale=(unsigned short int)(sum >> 3);
     #endif
     levelIdx = (levelIdx + 1) & 0xFF; /* keep wrapping but idx uses &0x07 */
     #endif 

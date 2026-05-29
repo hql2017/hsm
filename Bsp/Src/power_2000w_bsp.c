@@ -474,10 +474,7 @@ void app_p2000w_v_q_set(unsigned short int voltage,unsigned short int freq,unsig
 	}
 	else if(code==P2000W_CODE_RECONNECT)
 	{	
-		if((p2000w_status.ctr_status&P2000W_STA_B1_PFC_OK)!=P2000W_STA_B1_PFC_OK)
-		{
-			app_p2000w_re_connect_req();
-		}
+		app_p2000w_re_connect_req();		
 	}
 	else if(code==P2000W_CODE_VOLTAGE_SET)
 	{

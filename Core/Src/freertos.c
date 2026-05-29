@@ -344,7 +344,8 @@ void app_p2000w_pulse_auto_adjust_voltage( unsigned short int targetEnerge,unsig
 unsigned int  app_owb_key_scan(unsigned short int timeMs);
 #endif
 
-//1064能量值对应电压表0~200mJ
+//1064能量值对应电压表0~200mJ，环境温度27度
+
 
 static unsigned short int energe_140us_voltage[41]={ 200,220,230,245,260,280,
   290,300,310,320,330,340,345,350,355,360,365,375,385,395,405,415,425,
@@ -945,7 +946,7 @@ void laserWorkTask04(void *argument)
   osStatus_t m_stat;
   osStatus_t p_mtxs;
   osStatus_t can_tx_sta; 
-  unsigned char test_half_v=0;
+  unsigned int energe_over_count=0;
   U_CAN_TX_MSG u_CAN_tx_t_msg;
   U_P2000W_TX_MSG u_p2000w_msg;
    
@@ -1079,10 +1080,37 @@ void laserWorkTask04(void *argument)
           #if 1         
           //test    
           unsigned short int test_energe=laser_ctr_param.ledLightLevel*5;
-          test_energe%=201;     
-          unsigned short int test_V = energe_140us_voltage[test_energe/5]+laser_ctr_param.timerCtr*1;                  
+          test_energe%=201;           
+          unsigned short int   cali_freq_energe=1.0;//频率补偿
+          //target 118 =100*（1+0.18）
+           //target 100 =85*（1+0.18）
+          if(laser_ctr_param.laserFreq<25)
+          {
+            cali_freq_energe=( unsigned short int )test_energe*(laser_ctr_param.laserFreq*0.015);
+          }
+          else {
+           // cali_freq_energe=test_energe*(0.8+(laser_ctr_param.laserFreq-20)*0.005);
+           cali_freq_energe=( unsigned short int )test_energe*(0.24-(laser_ctr_param.laserFreq)*0.004);
+          }
+          float cali_temprature_energe=0.0;//温度补偿
+          cali_temprature_energe=0.02*(sEnvParam.eth_k1_temprature-26.0); 
+          if(cali_temprature_energe>0.15) 
+          {
+            cali_temprature_energe=0.15; 
+          }
+          if(cali_temprature_energe<-0.15) 
+          {
+            cali_temprature_energe=-0.15; 
+          }
+          if(cali_temprature_energe<0)
+          {
+            test_energe+=abs(cali_temprature_energe*test_energe);  
+          }  
+          else test_energe-=abs(cali_temprature_energe*test_energe);  
+          test_energe-=(cali_freq_energe);               
+          test_energe%=201;  
+          unsigned short int test_V = energe_140us_voltage[test_energe/5]+laser_ctr_param.timerCtr*1;                          
          // unsigned short int test_V=laser_ctr_param.ledLightLevel*1+200+laser_ctr_param.airPressureLevel*100;//energe_140us_voltage[energeNum];//200~600V;          
-         
           u_p2000w_msg.msg.code=P2000W_CODE_VOLTAGE_SET;
           u_p2000w_msg.msg.cmd=test_V;
           p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_msg.data,0,P2000W_FRAME_DELAY_TIME);
@@ -1106,21 +1134,16 @@ void laserWorkTask04(void *argument)
           }  
           else if(test_V<370)
           {
-            if(test_V<340)
-            {
-              pulseProUs=(unsigned short int)(19+(370-test_V)*0.10);  
-            }
-            else pulseProUs=(unsigned short int)(20+(370-test_V)*0.10); 
+            pulseProUs=(unsigned short int)(19+(370-test_V)*0.10); 
             pulseOffDelayUs=10;                              
           }    
           else if(test_V<470)
           {
-            if(test_V<440)
-            {
-              pulseProUs=(unsigned short int)(14.0+(470-test_V)*0.05); 
+            pulseProUs=(unsigned short int)(14.5+(470-test_V)*0.05); 
+            if(test_V<410)  {
+              pulseOffDelayUs=11;
             }
-            else pulseProUs=(unsigned short int)(14.5+(470-test_V)*0.05); 
-            pulseOffDelayUs=10;
+            else pulseOffDelayUs=10;
           }                    
           else
           {    
@@ -1255,23 +1278,33 @@ void laserWorkTask04(void *argument)
             //Pavg=Ppeak*u_sys_param.sys_config_param.laser_pulse_width_us*laserFreq；//占空比
             //E=Pavg/freq;->Pavg=freq*E //脉冲能量
             //Ppeak=E/u_sys_param.sys_config_param.laser_pulse_width_us;//峰值功率 
-            double p_avg=(e_feedback*0.0008)*(u_sys_param.sys_config_param.laser_pulse_width_us)*laser_ctr_param.laserFreq;  
-            float peak_P = (e_feedback*0.0008);//peak  power ,峰值功率                        
+            float peak_P = (e_feedback*0.0007);//peak  power ,峰值功率
+            double p_avg=(peak_P)*(u_sys_param.sys_config_param.laser_pulse_width_us)*laser_ctr_param.laserFreq;                                   
             sEnvParam.laser_1064_energy=p_avg/laser_ctr_param.laserFreq;//能量             
             DEBUG_PRINTF("E=%.1fmJ peak_P=%.2fmw feedBck=%.1fmV pulseCount=%d rb=%d 980=%d\r\n",sEnvParam.laser_1064_energy,peak_P,e_feedback,u_sys_param.sys_config_param.laser_pulse_count,u_sys_param.sys_config_param.RDB_use_timeS,u_sys_param.sys_config_param.laser_use_timeS);              
             if(sEnvParam.laser_1064_energy>0&&laser_ctr_param.laserEnerge>0&&e_feedback>0)
             {  
-              if(sEnvParam.laser_1064_energy>laser_ctr_param.laserEnerge+5||sEnvParam.laser_1064_energy+5<laser_ctr_param.laserEnerge)
+              if(sEnvParam.laser_1064_energy>laser_ctr_param.laserEnerge+10||sEnvParam.laser_1064_energy+10<laser_ctr_param.laserEnerge)
               {
                // app_p2000w_pulse_auto_adjust_voltage(100,sEnvParam.laser_1064_energy,2);
               }
-              if(sEnvParam.laser_1064_energy>laser_ctr_param.laserEnerge*1.40)   
+              if(sEnvParam.laser_1064_energy>laser_ctr_param.laserEnerge*1.20)   
               {  
-                sGenSta.laser_param_B01_energe_status=2; //over load
+                energe_over_count++;
+                if(energe_over_count>3){
+                  energe_over_count=3;
+                  sGenSta.laser_param_B01_energe_status=2; //over load
+                }
               }  
-              else sGenSta.laser_param_B01_energe_status=1;
+              else{
+                energe_over_count=0;
+                sGenSta.laser_param_B01_energe_status=1;
+              } 
             }            
-            else sGenSta.laser_param_B01_energe_status=0;                   
+            else{
+              energe_over_count=0;
+              sGenSta.laser_param_B01_energe_status=0;  
+            }                  
           }
           #else 
           if(sGenSta.laser_run_B1_laser_out_status!=0) 
@@ -2149,25 +2182,16 @@ void laserProhotTask09(void *argument)
           }   
           else if( p2000w_ctr_param.outVoltageSet<370)
           {
-            pulseOffDelayUs=10;
-            if( p2000w_ctr_param.outVoltageSet<340)
-            {
-              pulseProUs=(unsigned short int)(55- p2000w_ctr_param.outVoltageSet*0.10); 
-            }
-            else {
-              pulseProUs=(unsigned short int)(56- p2000w_ctr_param.outVoltageSet*0.10); 
-            }
-                              
+            pulseOffDelayUs=10;         
+            pulseProUs=(unsigned short int)(56- p2000w_ctr_param.outVoltageSet*0.10); 
           }    
           else if( p2000w_ctr_param.outVoltageSet<470)
           {
-            pulseOffDelayUs=10;
-            if(p2000w_ctr_param.outVoltageSet<440)
-            {
-              pulseProUs=(unsigned short int)(37.5- p2000w_ctr_param.outVoltageSet*0.05); 
+            if(p2000w_ctr_param.outVoltageSet<410)  {
+              pulseOffDelayUs=11;
             }
-            else   pulseProUs=(unsigned short int)(38- p2000w_ctr_param.outVoltageSet*0.05); 
-                           
+            else pulseOffDelayUs=10;
+            pulseProUs=(unsigned short int)(38- p2000w_ctr_param.outVoltageSet*0.05);                            
           }                    
           else
           {    
@@ -2211,9 +2235,41 @@ void laserProhotTask09(void *argument)
               osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,0); 
             }
           } 
-          
+          unsigned short int   cali_energe= p2000w_ctr_param.outVoltageSet;
+          unsigned short int   cali_freq_energe=1.0;//频率补偿
+          //target 118 =100*（1+0.18）
+           //target 100 =85*（1+0.18）
+          if(laser_ctr_param.laserFreq<25)
+          {
+            cali_freq_energe=( unsigned short int )cali_energe*(laser_ctr_param.laserFreq*0.015);
+          }
+          else {
+           // cali_freq_energe=test_energe*(0.8+(laser_ctr_param.laserFreq-20)*0.005);
+           cali_freq_energe=( unsigned short int )cali_energe*(0.24-(laser_ctr_param.laserFreq)*0.004);
+          }
+          float cali_temprature_energe=0.0;//温度补偿
+          cali_temprature_energe=0.02*(sEnvParam.eth_k1_temprature-26.0); 
+          if(cali_temprature_energe>0.15) 
+          {
+            cali_temprature_energe=0.15; 
+          }
+          if(cali_temprature_energe<-0.15) 
+          {
+            cali_temprature_energe=-0.15; 
+          }
+          if(cali_temprature_energe<0)
+          {
+            cali_energe+=abs(cali_temprature_energe*p2000w_ctr_param.outVoltageSet);  
+          }  
+          else cali_energe-=abs(cali_temprature_energe*p2000w_ctr_param.outVoltageSet);  
+          cali_energe-=(cali_freq_energe);               
+          cali_energe%=201;  
           u_p2000w_tx_msg.msg.code=P2000W_CODE_VOLTAGE_SET;
-          u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.outVoltageSet;          
+          #if 1   
+          u_p2000w_tx_msg.msg.cmd= cali_energe; 
+          #else 
+          u_p2000w_tx_msg.msg.cmd=p2000w_ctr_param.outVoltageSet; 
+          #endif      
           p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,u_p2000w_tx_msg.data,0,P2000W_FRAME_DELAY_TIME);
           if(p_mtxs!=osOK) 
           {            
@@ -3513,14 +3569,23 @@ unsigned short int app_energe_cali( unsigned int adVoltage)
  {
   U_P2000W_TX_MSG p_send_msg;
   osStatus_t p_mtxs;
-  voltageRange=2.0;//2V
+  voltageRange=20.0;//2V
+  static unsigned short int cali_energe=0,cali_volatage=0,target_voltage=200;
   p_send_msg.msg.code=P2000W_CODE_VOLTAGE_SET;
-
-  if(realEnerge+5<targetEnerge){//能量偏低5mJ.
-   
-  /*
-   p2000w_ctr_param.outVoltageSet+=(unsigned short int)voltageRange;
-    p_send_msg.msg.cmd=p2000w_ctr_param.outVoltageSet;
+  if(targetEnerge>200) targetEnerge=200;
+  target_voltage=energe_140us_voltage[targetEnerge/5];
+  if(realEnerge+5<targetEnerge||realEnerge>5+targetEnerge){//能量波动5mJ.
+    cali_energe=(realEnerge+targetEnerge)>>1;
+    if(cali_energe>200) cali_energe=200;
+    if(realEnerge+5<targetEnerge)    
+    {
+      cali_volatage=target_voltage-energe_140us_voltage[cali_energe/5];
+      p_send_msg.msg.cmd=target_voltage+(cali_energe>>1);
+    }
+    else if(realEnerge>5+targetEnerge){
+      cali_volatage=energe_140us_voltage[cali_energe/5]-target_voltage;
+      p_send_msg.msg.cmd=target_voltage-(cali_energe>>1);
+    }
     p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,p_send_msg.data,0,P2000W_FRAME_DELAY_TIME);
     if(p_mtxs!=osOK) 
     {
@@ -3529,22 +3594,7 @@ unsigned short int app_energe_cali( unsigned int adVoltage)
       osMessageQueuePut(p2000wTxMessageQueue04Handle,p_send_msg.data,0,0);
     }
     else DEBUG_PRINTF("set up cali voltage=%dV\r\n", p_send_msg.msg.cmd);   
-*/
-  }
-  else if(realEnerge>5+targetEnerge){//能量偏高5mJ   
-    /*
-    p2000w_ctr_param.outVoltageSet-=(unsigned short int)voltageRange;
-    p_send_msg.msg.cmd=p2000w_ctr_param.outVoltageSet;
-     p_mtxs= osMessageQueuePut(p2000wTxMessageQueue04Handle,p_send_msg.data,0,P2000W_FRAME_DELAY_TIME);
-    if(p_mtxs!=osOK) 
-    {    
-      DEBUG_PRINTF("set test voltage fial ,resend once!\r\n");
-      osDelay(P2000W_FRAME_DELAY_TIME);
-      osMessageQueuePut(p2000wTxMessageQueue04Handle,p_send_msg.data,0
-        ,0);
-    }
-    else DEBUG_PRINTF("set down cali voltage=%dV\r\n", p_send_msg.msg.cmd); 
-    */  
+
   }
  }
   /************************************************************************//**
