@@ -16,7 +16,7 @@
 #define P2000W_CODE_RELEY_CTR    0x06	//继电器控制
 #define P2000W_CODE_PULSE_OUT    0x07	//脉冲输出
 #define P2000W_CODE_RECONNECT    0x08   //重连(读取软件版本号)7E 7E 0A 08 00 00 A0 15 0D 0A
- 
+#define P2000W_CODE_MAX_VOL_WIDTH    0x0A   //设置电保护脉宽
 
 #define P2000W_VOLTAGE_FREQ_SET_COMMON  0x90 //电压频率一起  
 #define P2000W_CMD_ACK_MASK    0x7F//(code)（命令响应| 功能码）

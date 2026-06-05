@@ -271,7 +271,12 @@ unsigned short int app_p2000w_package_check(void)
 						if(crcValue == p2000w_crc16(&gx_package_data[skipLen],packLen-4))					
 						{
 							peekLen = packLen;
-							app_p2000W_pack_handle(&gx_package_data[skipLen],packLen);												
+							app_p2000W_pack_handle(&gx_package_data[skipLen],packLen);
+							if(p2000w_ctr_param.p2000wHeart==0) 
+							{
+							  DEBUG_PRINTF("p2000W connect succcess!\r\n");
+							  p2000w_ctr_param.p2000wHeart =  1;
+							}												
 						}
 					}					
 					skipLen+=packLen;
@@ -361,11 +366,27 @@ unsigned short int app_p2000w_package_check(void)
  {		
 	HAL_StatusTypeDef err;
 	unsigned char dataBuff[2];
-	if(pulseWidthUs<80) pulseWidthUs=80;//100us
+	if(pulseWidthUs<50) pulseWidthUs=50;//50us
 	if(pulseWidthUs>240) pulseWidthUs=240;//240us
 	dataBuff[0]=(pulseWidthUs)&0xFF;
 	dataBuff[1]=((pulseWidthUs)>>8)&0xFF;
 	err= app_p2000w_transmit(P2000W_CODE_PULSE_WIDTH,dataBuff,2);
+ }
+   /************************************************************************//**
+  * @brief 设置电保护脉宽
+  * @param  pulseWidthUs 200~800us
+  * @note  1us分辨率
+  * @retval 
+  *****************************************************************************/
+ void app_p2000w_max_pulse_width_set(unsigned short int  maxPulseWidthUs)
+ {		
+	HAL_StatusTypeDef err;
+	unsigned char dataBuff[2];
+	if(maxPulseWidthUs<200) maxPulseWidthUs=200;//200us
+	if(maxPulseWidthUs>600) maxPulseWidthUs=600;//600
+	dataBuff[0]=(maxPulseWidthUs)&0xFF;
+	dataBuff[1]=((maxPulseWidthUs)>>8)&0xFF;
+	err= app_p2000w_transmit(P2000W_CODE_MAX_VOL_WIDTH,dataBuff,2);
  }
  /***************************************************************************//**
  * @brief 脉宽频率一起设置
@@ -487,6 +508,10 @@ void app_p2000w_v_q_set(unsigned short int voltage,unsigned short int freq,unsig
 	else if(code==P2000W_CODE_PULSE_WIDTH)
 	{
 		app_p2000w_pulse_width_set(cmdTemp);
+	}
+	else if(code==P2000W_CODE_MAX_VOL_WIDTH)
+	{
+		app_p2000w_max_pulse_width_set(cmdTemp);
 	}
 	else 
 	{

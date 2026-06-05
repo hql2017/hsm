@@ -227,7 +227,7 @@ void Error_Handler(void);
 #define SYS_1_MINUTES_TICK    60000//1 minete
 #define LASER_MAX_CONTINUS_WORK_TIME    5*SYS_1_MINUTES_TICK
 
-#define MAX_IBUS_MA 10000
+#define MAX_IBUS_MA 10000//240W
 #define MIN_VBUS_MV 10000
 
 #define EEROM_DATA_ERR_CHECK_FLAG  0xFF

@@ -413,6 +413,7 @@ void app_start_multi_channel_adc(void)
   tim_triger_ad(&htim6);//low power 
   HAL_ADC_Start_DMA(&hadc1,(unsigned int*)adBuff,MAX_AD_BUFF_LENGTH);  //4*64 
   kalman_filter_init(&kalmAdEnerge, 0, 0.1);
+ 
 }
 /**
   * @brief pulse_adc_start
@@ -518,7 +519,7 @@ void filter_ad1(void)
       ad2hle[idx] = (unsigned short int)(sum /j);
     } else {      
       ad2hle[idx] = (unsigned short int)sum;
-    }    
+    }  
     #if 0
       sum = 0;
       for(i = 0; i < 8; i++)
@@ -528,15 +529,17 @@ void filter_ad1(void)
       } 
       unsigned short int temp_avg=(unsigned short int)(sum >> 3);      
     #else 
-    ad2vale=(uint16_t) kalman_filter_update(&kalmAdEnerge, ad2hle[idx]); 
-    ad2hle[idx]=ad2vale;//滤波结果覆盖原始值,保持水平缓慢变化,避免突变;
+    unsigned short int temp_avg=	ad2hle[idx];  
+    temp_avg=(uint16_t) kalman_filter_update(&kalmAdEnerge, ad2hle[idx]*1.0); 
+		ad2hle[idx]=temp_avg;//滤波结果覆盖原始值,保持水平缓慢变化,避免突变; 
     sum = 0;
     for(i = 0; i < 8; i++)
     {     
       if(ad2hle[i]==0) sum += ad2hle[0];     
       else  sum += ad2hle[i];
     } 
-    ad2vale=(unsigned short int)(sum >> 3);
+     temp_avg=(unsigned short int)(sum >> 3);
+    ad2vale= temp_avg;
     #endif
     levelIdx = (levelIdx + 1) & 0xFF; /* keep wrapping but idx uses &0x07 */
     #endif 
@@ -618,9 +621,9 @@ void app_get_adc_value(unsigned char adChannel,float *vBuff)
   }
   else  if(adChannel==AD2_LASER_1064_INDEX)
   {
-    temp=(ad2vale*AD_VREF_VOLTAGE)>>16;  
+    temp=(ad2vale*AD_VREF_VOLTAGE)>>16;     
     *vBuff= temp*1.0 ;//LASER064ADAD, 
-  
+    
    #if 0
    DEBUG_PRINTF("laserAD=");
    for(int i=0;i<MAX_AD2_ENERGE_BUFF_LENGTH;i++)
