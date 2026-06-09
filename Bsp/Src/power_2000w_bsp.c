@@ -374,7 +374,7 @@ unsigned short int app_p2000w_package_check(void)
  }
    /************************************************************************//**
   * @brief 设置电保护脉宽
-  * @param  pulseWidthUs 200~800us
+  * @param  pulseWidthUs 50~800us
   * @note  1us分辨率
   * @retval 
   *****************************************************************************/
@@ -382,7 +382,7 @@ unsigned short int app_p2000w_package_check(void)
  {		
 	HAL_StatusTypeDef err;
 	unsigned char dataBuff[2];
-	if(maxPulseWidthUs<200) maxPulseWidthUs=200;//200us
+	if(maxPulseWidthUs<50) maxPulseWidthUs=50;//200us
 	if(maxPulseWidthUs>600) maxPulseWidthUs=600;//600
 	dataBuff[0]=(maxPulseWidthUs)&0xFF;
 	dataBuff[1]=((maxPulseWidthUs)>>8)&0xFF;

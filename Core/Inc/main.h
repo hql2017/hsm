@@ -217,6 +217,7 @@ void Error_Handler(void);
 #define ERR_T_SHORT_INT_VALUE  160///温度整型错误值
 
 //laser
+#define LASER_MAX_ENERGE_MJ  220
 #define LASER_1064_MIN_ENERGE_V  200//7675
 #define LASER_1064_MAX_ENERGE_V  600//600V~23000
 
