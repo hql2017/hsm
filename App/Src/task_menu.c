@@ -16,7 +16,6 @@ extern  void laserProhotTask09(void *argument);
 extern  void ge2117ManageTask10(void *argument);
 extern  void musicTask11(void *argument);
 extern  void p2000wReceiveTask12(void *argument);
-
 extern  void LaserWorkTimerCallback01(void *argument);
 extern  void cleanWaterCallback02(void *argument);
 extern  void tmcMaxRunTimesCallback03(void *argument);

@@ -216,6 +216,7 @@ void app_p2000W_receive_config( void )
 *******************************************************************************/
 void app_p2000w_init( void )
 {
+	MX_LPUART1_UART_Init();
 	app_high_voltage_solenoid(ENABLE);
 	memset(&p2000w_status,0,sizeof(P_2000W_STATUS));//clear
 	memset(&p2000w_ctr_param,0,sizeof(P_2000W_SET_PARAM));//clear
@@ -315,7 +316,7 @@ unsigned short int app_p2000w_package_check(void)
 	HAL_StatusTypeDef err;
 	unsigned char dataBuff[2];	
 	dataBuff[0]=0;	
-	dataBuff[1]=0;
+	dataBuff[1]=0;	
 	err = app_p2000w_transmit(P2000W_CODE_RECONNECT,dataBuff,2);	
  }
   /************************************************************************//**

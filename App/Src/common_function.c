@@ -7,6 +7,55 @@
 
 #include "common_function.h" 
 
+/**************************PID*************************/
+
+void pid_init(PID_ControlBlock *pid )
+{
+	pid->set_value = 0.0;
+	pid->actual_value = 0.0;
+	pid->error = 0.0;
+	pid->error_next = 0.0;
+	pid->error_last = 0.0;
+	//可调节PID 参数。使跟踪曲线慢慢接近阶跃函数200.0 // 
+	pid->kp = 0.2;
+	pid->ki = 0.01;
+	pid->kd = 0.2;	
+}
+
+/* 函数功能：位置式PID控制器 
+*入口参数：measureValue，反馈值，目标位置 返回 值：
+*pwm=Kp*e(k)+Ki*∑e(k)+Kd[e（k）-e(k-1)] e(k)代表本次偏差 e(k-1)代表上一次的偏差 ∑e(k)代表e(k)以及之前的偏差的累积和;
+*其中k为1,2,,k; pwm代表输出 
+*/
+int Position_PID (PID_ControlBlock *pid,int feedbackValue,int target)
+{  	
+	static float Bias,out,Integral_bias,Last_Bias;
+	Bias=target-feedbackValue;                                  //计算偏差
+	Integral_bias+=Bias;	                                //求出偏差的积分
+	if(Integral_bias>3000)Integral_bias=3000;
+	if(Integral_bias<-3000)Integral_bias=-3000;
+	out=pid->kp*Bias+pid->ki*Integral_bias+pid->kd*(Bias-Last_Bias);       //位置式PID控制器
+	Last_Bias=Bias;                                       //保存上一次偏差 
+	return out;                                           //增量输出
+}
+/* 函数功能：增量式*
+*/
+float pid_realise_updata(PID_ControlBlock *pid,float speed)
+{ 
+	pid->set_value = speed;//设置目标值
+	pid->error = pid->set_value - pid->actual_value;
+	float increment_speed;//增量
+	increment_speed = pid->kp*(pid->error-pid->error_next)+pid->ki*pid->error+\
+	pid->kd*(pid->error-2*pid->error_next+pid->error_last);//增量计算公式 
+	pid->set_value+= increment_speed;
+	pid->error_last = pid->error_next;//下一次迭代 
+	pid->error_next = pid->error;
+	return pid->actual_value; 
+}
+
+/**************************PID*************************/
+
+
 /*************************************** *//*
 CRC16——modbus
 uint16_t crc_table_list[256]=
@@ -112,10 +161,10 @@ double kalman_filter_update(KalmanFilter* kf, double measurement) {
     DWT->CTRL|=DWT_CTRL_CYCCNTENA_Msk;
 }       
 
- void delay_us(volatile uint32_t nus)
+ void delay_us(volatile unsigned int nus)
 {   
-    volatile uint32_t start=DWT->CYCCNT,tcnt = 0;        //刚进入时的计数器值   
-    volatile uint32_t ticks=nus*(SystemCoreClock/1000000);//nus需要的节拍数 
+    volatile unsigned int start=DWT->CYCCNT,tcnt = 0;        //刚进入时的计数器值   
+    volatile unsigned int ticks=nus*(SystemCoreClock/1000000);//nus需要的节拍数 
     while(tcnt<ticks)
     {
         tcnt=  DWT->CYCCNT- start;

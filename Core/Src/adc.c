@@ -420,7 +420,7 @@ void app_start_multi_channel_adc(void)
   * @param void
   * @note   脉冲AD采集,tmeus =224*1=224us
   * @retval None
-  */
+  */ 
 void pulse_adc_start(unsigned char Len)
 {
   if(Len>MAX_AD2_ENERGE_BUFF_LENGTH) pulse_ad_count=MAX_AD2_ENERGE_BUFF_LENGTH;
