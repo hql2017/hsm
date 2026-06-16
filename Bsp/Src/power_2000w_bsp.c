@@ -579,7 +579,7 @@ void app_p2000w_pulse_start(unsigned char cmd)
 		dataBuff[0]=0;
 		dataBuff[1]=0;
 		app_p2000w_ctr_tansmit(P2000W_CODE_PULSE_OUT,0);
-	}
+	}	
 	else 
 	{
 		dataBuff[0]=cmd;
@@ -588,6 +588,7 @@ void app_p2000w_pulse_start(unsigned char cmd)
 	}
 }
  
+
 
 
 

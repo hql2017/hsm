@@ -412,7 +412,7 @@ void app_start_multi_channel_adc(void)
 {    
   tim_triger_ad(&htim6);//low power 
   HAL_ADC_Start_DMA(&hadc1,(unsigned int*)adBuff,MAX_AD_BUFF_LENGTH);  //4*64 
-  kalman_filter_init(&kalmAdEnerge, 0, 0.05);
+  kalman_filter_init(&kalmAdEnerge, 0, 0.1);
  
 }
 /**

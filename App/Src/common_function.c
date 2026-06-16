@@ -54,8 +54,6 @@ float pid_realise_updata(PID_ControlBlock *pid,float speed)
 }
 
 /**************************PID*************************/
-
-
 /*************************************** *//*
 CRC16——modbus
 uint16_t crc_table_list[256]=
@@ -115,11 +113,8 @@ uint16_t crc_table_list[256]=
 				}				
 			}
 		}
-	}
-		
-} 
-
-// 初始化滤波器
+	}		
+} //初始化滤波器
 void kalman_filter_init(KalmanFilter* kf, double initial_estimate, double variance) {
     kf->last_estimate = initial_estimate;
     kf->estimate = initial_estimate;
