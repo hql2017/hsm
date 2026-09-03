@@ -504,7 +504,7 @@ void filter_ad1(void)
     //unsigned short int max_half_value=match_max(ad2Buff,pulse_ad_count)>>1;//50%;
     //氙灯1064波形不同,计算峰值
     unsigned short int max_value=match_max((unsigned short int *)ad2Buff,pulse_ad_count);  
-    max_half_value= (unsigned short int)(max_value*0.98);//0.5);    
+    max_half_value= (unsigned short int)(max_value*0.90);//0.5);    
     for(i = 0; i < pulse_ad_count; i++)
     {
       if(ad2Buff[i]>max_half_value)

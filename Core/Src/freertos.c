@@ -1275,7 +1275,7 @@ void laserWorkTask04(void *argument)
                   energe_over_count=0;    
                   if(sEnvParam.laser_1064_energy>LASER_MAX_ENERGE_MJ) sGenSta.laser_param_B01_energe_status=2; //over load 
                   else sGenSta.laser_param_B01_energe_status=1;           
-                  app_p2000w_pulse_auto_adjust_voltage(laser_ctr_param.laserEnerge,sEnvParam.laser_1064_energy,p2000w_ctr_param.outVoltageSet);
+                 // app_p2000w_pulse_auto_adjust_voltage(laser_ctr_param.laserEnerge,sEnvParam.laser_1064_energy,p2000w_ctr_param.outVoltageSet);
                 }                
               } 
               else if(sEnvParam.laser_1064_energy+5<laser_ctr_param.laserEnerge)   
@@ -1284,7 +1284,7 @@ void laserWorkTask04(void *argument)
                 if(energe_over_count<-3){                  
                   energe_over_count=0;
                   if( sEnvParam.laser_1064_energy<laser_ctr_param.laserEnerge*0.80) sGenSta.laser_param_B01_energe_status=3; //low load
-                  app_p2000w_pulse_auto_adjust_voltage(laser_ctr_param.laserEnerge,sEnvParam.laser_1064_energy,p2000w_ctr_param.outVoltageSet);
+                  //app_p2000w_pulse_auto_adjust_voltage(laser_ctr_param.laserEnerge,sEnvParam.laser_1064_energy,p2000w_ctr_param.outVoltageSet);
                 }               
               }   
               else{      
